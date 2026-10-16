@@ -1,0 +1,20 @@
+3.1 도트 게임 그림 — 내장 ImageGen 편집 / 투명 배경 유지
+
+assets/animals-pixel.png
+Use case: style-transfer
+Edit target: supplied 4 by 4 animal sprite atlas.
+Redraw every sprite as genuine CUTE 16-BIT PIXEL ART for a top-down RPG. Preserve exactly 16 separate sprites, the same 4 by 4 cell arrangement, species, color identities, rounded big-head tiny-body proportions, and all four directions.
+Rows: green grasshopper; round green frog; short orange snake; brown baby hawk.
+Columns: front/down showing face; left profile; right profile; back/up showing back and no face.
+CRUCIAL style: sprites look hand-placed on a coarse 48 by 48 pixel grid, enlarged as crisp square blocks. Clearly visible staircase edges and square highlight clusters, one logical pixel dark outline, compact 3-tone shading, limited retro pastel palette. Eyes are simple square pixel clusters. Silhouettes still feel ROUND, plump, adorable and readable at small size.
+NO smooth vector curves, NO smooth shading, NO gradients, NO blur, NO anti-aliasing, NO painterly illustration, NO 3D. Every edge is blocky and grid-stepped. Every cell uses the SAME logical pixel size.
+Full bodies centered in evenly sized cells with wide transparent margins. Preserve genuinely transparent background. No shadows, text, numbers, grid lines or new objects. Production-ready pixel RPG sprites.
+
+assets/forest-props-pixel.png
+Use case: style-transfer
+Edit target: supplied 2 by 2 forest prop atlas.
+Redraw these four same objects as genuine CUTE 16-BIT PIXEL ART for a top-down RPG. Preserve the 2 by 2 arrangement: top left round leafy tree with short brown trunk; top right low gray lavender rock cluster; bottom left lush rounded leafy bush; bottom right golden-green rice clump with drooping grain heads.
+CRUCIAL style: hand-placed coarse pixel-grid art enlarged as visibly crisp square blocks. Tree roughly 64 by 64 logical pixels; bush roughly 48 by 48; rice about 32 by 32. Strong staircase silhouettes, square leaf clusters, a one logical pixel dark outline, 3-tone shading, limited pastel green/gold/lavender/brown retro palette. Keep objects plump and round in silhouette while all edges are stepped pixels. Match cute 48 by 48 RPG animal sprites.
+NO smooth vector curves, NO gradients, NO blur, NO anti-aliasing, NO painterly leaf texture, NO 3D. Emphasize chunky readable pixel clusters.
+Consistent elevated top-down RPG view. Full objects centered in separate evenly sized quadrants with wide empty transparent margins; no object crossing cell boundaries. Preserve genuinely transparent background. No ground tiles, shadows, text, numbers, grid lines or new objects.
+

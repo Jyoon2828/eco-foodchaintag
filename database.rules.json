@@ -1,0 +1,75 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "foodTag": {
+      "$class": {
+        "owner": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'password' && (!data.exists() && newData.val() == auth.uid || data.val() == auth.uid && newData.val() == auth.uid)",
+          ".validate": "newData.isString()"
+        },
+        "meta": {
+          ".read": "auth != null",
+          ".write": "auth != null && root.child('foodTag').child($class).child('owner').val() == auth.uid"
+        },
+        "world": {
+          ".read": "auth != null",
+          ".write": "auth != null && root.child('foodTag').child($class).child('owner').val() == auth.uid"
+        },
+        "members": {
+          ".read": "auth != null",
+          ".write": "auth != null && root.child('foodTag').child($class).child('owner').val() == auth.uid",
+          "$uid": {
+            ".write": "auth != null && auth.uid == $uid && root.child('foodTag').child($class).child('meta/epoch').exists()",
+            ".validate": "newData.hasChildren(['group','seat','online','epoch','joinedAt']) && newData.child('group').isNumber() && newData.child('group').val() >= 1 && newData.child('group').val() <= 6 && newData.child('group').val() % 1 == 0 && newData.child('seat').isNumber() && newData.child('seat').val() >= 1 && newData.child('seat').val() <= 6 && newData.child('seat').val() % 1 == 0 && newData.child('online').isBoolean() && newData.child('epoch').val() == root.child('foodTag').child($class).child('meta/epoch').val() && newData.child('joinedAt').isNumber()",
+            "group": {},
+            "seat": {},
+            "online": {},
+            "epoch": {},
+            "joinedAt": {},
+            "$other": {
+              ".validate": false
+            },
+            "skin": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2 && newData.val() % 1 == 0"
+            }
+          }
+        },
+        "inputs": {
+          ".read": "auth != null && root.child('foodTag').child($class).child('owner').val() == auth.uid",
+          ".write": "auth != null && root.child('foodTag').child($class).child('owner').val() == auth.uid",
+          "$uid": {
+            ".write": "auth != null && auth.uid == $uid && root.child('foodTag').child($class).child('members').child($uid).child('online').val() == true",
+            ".validate": "newData.hasChildren(['x','y','action','epoch','at']) && newData.child('x').isNumber() && newData.child('x').val() >= -1 && newData.child('x').val() <= 1 && newData.child('y').isNumber() && newData.child('y').val() >= -1 && newData.child('y').val() <= 1 && newData.child('action').isNumber() && newData.child('action').val() >= 0 && newData.child('epoch').val() == root.child('foodTag').child($class).child('meta/epoch').val() && newData.child('at').isNumber() && newData.child('at').val() >= now - 5000 && newData.child('at').val() <= now + 5000",
+            "x": {},
+            "y": {},
+            "action": {},
+            "epoch": {},
+            "at": {},
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "boards": {
+          ".read": "auth != null",
+          ".write": "auth != null && root.child('foodTag').child($class).child('owner').val() == auth.uid",
+          "$group": {
+            ".write": "auth != null && root.child('foodTag').child($class).child('members').child(auth.uid).child('online').val() == true && root.child('foodTag').child($class).child('members').child(auth.uid).child('group').val() + '' == $group",
+            ".validate": "newData.hasChildren(['group','chain','reason','epoch','submitted','lastBy']) && newData.child('group').val() == root.child('foodTag').child($class).child('members').child(auth.uid).child('group').val() && newData.child('lastBy').val() == auth.uid && newData.child('submitted').isBoolean() && newData.child('chain').isString() && newData.child('chain').val().length <= 60 && newData.child('reason').isString() && newData.child('reason').val().length <= 300 && newData.child('epoch').val() == root.child('foodTag').child($class).child('meta/epoch').val()",
+            "group": {},
+            "chain": {},
+            "reason": {},
+            "epoch": {},
+            "submitted": {},
+            "lastBy": {},
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    }
+  }
+}
