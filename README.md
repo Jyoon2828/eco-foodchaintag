@@ -1,6 +1,14 @@
-# 먹이사슬 술래잡기 3.1 — 2D 숲속 RPG
+# 먹이사슬 술래잡기 3.1.1 — 2D 숲속 RPG
 
 4학년 「생물과 환경」의 먹이관계를 배우는 실시간 학급 웹게임입니다.
+
+## 3.1.1 학생 입장 권한 오류 수정
+
+학생 참여 정보를 완성하기 전에 퇴장 정리 작업을 예약하던 순서를 수정했습니다. 학생은 완전한 참여 정보를 먼저 오프라인 상태로 저장하고, 퇴장 정리 예약을 마친 뒤 온라인으로 표시됩니다. 입장 정보 저장이 실패하면 빈 게임 화면으로 넘어가지 않습니다.
+
+기존 배포를 고칠 때는 **`network.js`, `app.js`, `database.rules.json`**을 GitHub에서 교체하세요. 이어서 **Firebase → food-chain-tag → Realtime Database → Rules**에도 새 `database.rules.json` 전체를 붙여 넣고 게시해야 합니다. GitHub 파일 교체만으로 Firebase 규칙이 갱신되지는 않습니다. Vercel의 Firebase 설정값은 앞서 저장한 값을 사용합니다. 교사와 학생 창을 모두 새로고침한 뒤 다시 입장하세요.
+
+개발 검증: `npm test`는 게임 로직을 검사합니다. Firebase 규칙과 입장·퇴장·재접속 검증은 Node와 Java 21 이상이 있는 환경에서 `npm install --prefix tests` 후 `npm run test:firebase`로 실행합니다. 이 검사는 `demo-foodtag` 로컬 에뮬레이터만 사용합니다.
 
 ## 3.1 도트 게임 그림체
 

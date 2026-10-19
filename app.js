@@ -9,7 +9,7 @@ const teacherMode=params.get('mode')==='teacher';
 const S={net:null,teacher:false,host:false,demo:false,entered:false,world:null,meta:{},members:{},inputs:{},boards:{},me:null,group:1,seat:1,skin:0,action:0,keys:new Set(),joystick:{x:0,y:0},target:null,route:[],token:crypto.randomUUID(),epoch:null,hostReceived:Date.now(),lastPacket:0,lastBeat:0,lastUI:0,lastMemberSync:0,lastEvent:0,overlayKey:'',boardTimer:0,quizDone:{}};
 let noticeTimer,toastTimer;
 function notice(text){$('notice').textContent=text;$('notice').classList.remove('hidden');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').classList.add('hidden'),7500);}
-function fail(e){const code=String(e?.code||'');const msg=code.includes('permission')?'연결 권한을 확인해 주세요. Firebase Realtime Database 규칙과 교사 계정을 확인하세요.':code.includes('operation-not-allowed')?'Firebase Authentication에서 익명 로그인과 이메일/비밀번호를 켜 주세요.':code.includes('invalid-credential')?'교사 이메일과 비밀번호를 확인해 주세요.':code.includes('network')?'인터넷 연결을 확인해 주세요.':e?.message||'연결 중 문제가 생겼어요. 다시 시도해 주세요.';notice(msg);console.warn(e);}
+function fail(e){const code=String(e?.code||'').toLowerCase();const msg=code.includes('permission')?'연결 권한을 확인해 주세요. Firebase Realtime Database 규칙과 교사 계정을 확인하세요.':code.includes('operation-not-allowed')?'Firebase Authentication에서 익명 로그인과 이메일/비밀번호를 켜 주세요.':code.includes('invalid-credential')?'교사 이메일과 비밀번호를 확인해 주세요.':code.includes('network')?'인터넷 연결을 확인해 주세요.':e?.message||'연결 중 문제가 생겼어요. 다시 시도해 주세요.';notice(msg);console.warn(e);}
 const run=fn=>(...args)=>{try{return Promise.resolve(fn(...args)).catch(fail);}catch(e){fail(e);}};
 function show(id){for(const el of document.querySelectorAll('main>.screen'))el.classList.toggle('hidden',el.id!==id);}
 function studentUrl(){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('class',classId);return u.href;}
@@ -41,8 +41,9 @@ $('joinForm').onsubmit=run(async e=>{
     const members=await n.get('members')||{};
     if(Object.entries(members).some(([id,m])=>id!==n.uid&&m.online&&m.epoch===meta.epoch&&m.group===S.group&&m.seat===S.seat))throw new Error('그 번호로 참여한 친구가 있어요. 우리 모둠에서 다른 번호를 골라 주세요.');
     if(Object.values(members).filter(m=>m.online&&m.epoch===meta.epoch).length>=36&&!members[n.uid]?.online)throw new Error('현재 36명이 참여하고 있어요. 선생님께 알려 주세요.');
+    await n.presence({group:S.group,seat:S.seat,skin:S.skin,joinedAt:n.now()},meta.epoch);
     S.teacher=false;S.demo=false;S.meta=meta;S.epoch=meta.epoch;S.me=n.uid;S.entered=true;
-    await n.presence({group:S.group,seat:S.seat,skin:S.skin,joinedAt:n.now()},S.epoch);bindWatchers();gameView();$('connection').textContent=n.connected?'연결됨':'재연결 중';
+    bindWatchers();gameView();$('connection').textContent=n.connected?'연결됨':'재연결 중';
     if(!sessionStorage.getItem('foodTagHelp')){$('helpDialog').showModal();sessionStorage.setItem('foodTagHelp','1');}
   }finally{b.disabled=false;}
 });

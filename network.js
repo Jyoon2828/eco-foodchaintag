@@ -40,19 +40,34 @@ export class Network {
     await this.D.onDisconnect(this.ref('meta/hostOnline')).set(false);
   }
   async presence(member,epoch){
-    this.member=member;this.epoch=epoch;
+    this.presenceStop?.();
+    this.member={...member,joinedAt:member.joinedAt||this.now()};this.epoch=epoch;
+    const session=this.presenceSession={};
+    let resolveReady,rejectReady,settled=false,connecting=false;
+    const ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
+    const fail=e=>{
+      if(!settled){settled=true;this.member=null;this.presenceStop?.();rejectReady(e);}
+      else this.onError?.(e);
+    };
     const connect=async online=>{
-      if(!online||!this.member)return;
+      if(!online||!this.member||this.presenceSession!==session||connecting)return;
+      connecting=true;
       try{
+        // Seed a complete offline member so child-only cleanup writes validate.
+        // Mark online only after both disconnect operations are registered.
+        await this.update(`members/${this.uid}`,{...this.member,online:false,epoch:this.epoch});
         await this.D.onDisconnect(this.ref(`members/${this.uid}/online`)).set(false);
         await this.D.onDisconnect(this.ref(`inputs/${this.uid}`)).remove();
-        await this.update(`members/${this.uid}`,{...this.member,online:true,epoch:this.epoch,joinedAt:this.member.joinedAt||this.now()});
-      }catch(e){this.onError?.(e);}
+        if(!this.member||this.presenceSession!==session)return;
+        await this.update(`members/${this.uid}`,{online:true});
+        if(!settled){settled=true;resolveReady();}
+      }catch(e){fail(e);}
+      finally{connecting=false;}
     };
-    this.presenceStop=this.D.onValue(this.D.ref(this.db,'.info/connected'),s=>connect(!!s.val()));this.stops.push(this.presenceStop);
-    if(this.connected)await connect(true);
+    this.presenceStop=this.D.onValue(this.D.ref(this.db,'.info/connected'),s=>connect(!!s.val()),fail);this.stops.push(this.presenceStop);
+    return ready;
   }
-  async leave(){this.member=null;this.presenceStop?.();if(this.uid)await this.update(`members/${this.uid}`,{online:false});}
+  async leave(){this.member=null;this.presenceSession=null;this.presenceStop?.();if(this.uid){await this.update(`members/${this.uid}`,{online:false});await this.set(`inputs/${this.uid}`,null);}}
   sendInput(input,epoch){return this.set(`inputs/${this.uid}`,{...input,epoch,at:this.D.serverTimestamp()});}
-  dispose(){for(const stop of this.stops)stop();this.stops=[];}
+  dispose(){this.member=null;this.presenceSession=null;for(const stop of this.stops)stop();this.stops=[];}
 }

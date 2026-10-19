@@ -40,7 +40,7 @@
           ".read": "auth != null && root.child('foodTag').child($class).child('owner').val() == auth.uid",
           ".write": "auth != null && root.child('foodTag').child($class).child('owner').val() == auth.uid",
           "$uid": {
-            ".write": "auth != null && auth.uid == $uid && root.child('foodTag').child($class).child('members').child($uid).child('online').val() == true",
+            ".write": "auth != null && auth.uid == $uid && (!newData.exists() || root.child('foodTag').child($class).child('members').child($uid).child('online').val() == true)",
             ".validate": "newData.hasChildren(['x','y','action','epoch','at']) && newData.child('x').isNumber() && newData.child('x').val() >= -1 && newData.child('x').val() <= 1 && newData.child('y').isNumber() && newData.child('y').val() >= -1 && newData.child('y').val() <= 1 && newData.child('action').isNumber() && newData.child('action').val() >= 0 && newData.child('epoch').val() == root.child('foodTag').child($class).child('meta/epoch').val() && newData.child('at').isNumber() && newData.child('at').val() >= now - 5000 && newData.child('at').val() <= now + 5000",
             "x": {},
             "y": {},
