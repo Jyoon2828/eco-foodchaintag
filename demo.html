@@ -4,7 +4,7 @@
   <header class="rpg-head"><div><strong>🌿 먹이사슬 술래잡기</strong><small>혼자 체험 · 컴퓨터 생물과 놀아요</small></div><span class="rpg-time" aria-live="off">1 / 4 · 01:00</span></header>
   <div class="rpg-tools"><button type="button" data-cmd="play" class="main cursor-interaction">놀이 시작</button><button type="button" data-cmd="next" class="cursor-interaction">퀴즈 보기</button><button type="button" data-cmd="map" aria-pressed="false" class="cursor-interaction">전체 맵</button></div>
   <div class="rpg-stage"><canvas aria-label="먹이사슬 술래잡기 숲 맵. 화면을 누르거나 아래 방향 버튼으로 이동해요."></canvas><div class="rpg-hud"><b data-role>나 · 메뚜기</b><span data-food>먹이: 벼 · 천적: 개구리</span><span data-score>먹이 경험 0번</span></div><div class="rpg-pop" hidden><div class="rpg-pop-card"></div></div></div>
-  <footer class="rpg-foot"><div class="rpg-pad"><button type="button" data-dir="up" aria-label="위로 이동" class="cursor-interaction">↑</button><button type="button" data-dir="left" aria-label="왼쪽으로 이동" class="cursor-interaction">←</button><button type="button" data-dir="down" aria-label="아래로 이동" class="cursor-interaction">↓</button><button type="button" data-dir="right" aria-label="오른쪽으로 이동" class="cursor-interaction">→</button></div><span>화면 누르기 · 방향키 · WASD</span><button type="button" data-cmd="skill" class="rpg-skill cursor-interaction">멀리 뛰기</button></footer>
+  <footer class="rpg-foot"><div class="rpg-pad"><button type="button" data-dir="up" aria-label="위로 이동" class="cursor-interaction">↑</button><button type="button" data-dir="left" aria-label="왼쪽으로 이동" class="cursor-interaction">←</button><button type="button" data-dir="down" aria-label="아래로 이동" class="cursor-interaction">↓</button><button type="button" data-dir="right" aria-label="오른쪽으로 이동" class="cursor-interaction">→</button></div><span>방향키 · WASD · 점프로 나무·바위 넘기</span><button type="button" data-cmd="skill" class="rpg-skill cursor-interaction">멀리 뛰기</button></footer>
 </div>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
@@ -13,6 +13,7 @@
 <script>
 (()=>{
 const W = 1800, H = 1100;
+const JUMP_DURATION=.75, JUMP_DISTANCE=330, JUMP_HEIGHT=96;
 const ROLES = [
   {name:'메뚜기',emoji:'🦗',color:'#749b32',food:'벼',enemy:'개구리',skill:'멀리 뛰기',speed:255,cd:4},
   {name:'개구리',emoji:'🐸',color:'#23856c',food:'메뚜기',enemy:'뱀',skill:'혀 뻗기',speed:235,cd:3},
@@ -130,21 +131,28 @@ function step(world,inputs={},dt=.05){
   const all=Object.values(world.players).filter(p=>p.online);
   for(const f of world.plants)f.ready=Math.max(0,f.ready-dt);
   for(const p of all){
+    let jumpTime=p.role===0?p.effect:0;
     p.cool=Math.max(0,p.cool-dt);p.effect=Math.max(0,p.effect-dt);p.protect=Math.max(0,p.protect-dt);p.eatWait=Math.max(0,p.eatWait-dt);
     if(p.respawn>0){p.respawn=Math.max(0,p.respawn-dt);if(p.respawn===0)spawn(p,world);continue;}
     const i=p.bot?aiInput(world,p):(inputs[p.id]||{});
     let dx=clamp(Number(i.x)||0,-1,1),dy=clamp(Number(i.y)||0,-1,1);const norm=Math.max(1,Math.hypot(dx,dy));dx/=norm;dy/=norm;
-    if(Math.hypot(dx,dy)>.03)p.angle=Math.atan2(dy,dx);
+    if(jumpTime<=0&&Math.hypot(dx,dy)>.03)p.angle=Math.atan2(dy,dx);
     if(Number(i.action)>p.actionSeq){
       p.actionSeq=Number(i.action);
-      if(p.cool===0){p.cool=ROLES[p.role].cd;p.effect=p.role===2?3:p.role===1?.3:.65;event(world,{type:'skill',hunter:p.id,role:p.role,x:p.x,y:p.y});}
+      if(p.cool===0){p.cool=ROLES[p.role].cd;p.effect=p.role===0?JUMP_DURATION:p.role===2?3:p.role===1?.3:.65;if(p.role===0)jumpTime=JUMP_DURATION;event(world,{type:'skill',hunter:p.id,role:p.role,x:p.x,y:p.y});}
     }
     let speed=ROLES[p.role].speed;
-    if(p.effect>0){if(p.role===0||p.role===3)speed*=1.8;if(p.role===2)speed*=.55;}
-    let nx=clamp(p.x+dx*speed*dt,42,W-42),ny=clamp(p.y+dy*speed*dt,45,H-45);
-    if(p.role!==3){const safe=resolvePosition(nx,ny);nx=safe.x;ny=safe.y;}
-    p.x=nx;p.y=ny;p.hidden=p.role!==3&&(inReeds(p)&&Math.hypot(dx,dy)<.2||p.role===2&&p.effect>0);
-    if(p.role===0&&p.eatWait===0){
+    if(p.effect>0){if(p.role===3)speed*=1.8;if(p.role===2)speed*=.55;}
+    // A jump follows the takeoff direction even after the controls are released.
+    // Integrate the last partial frame so different step sizes travel equally far.
+    const jumping=jumpTime>0,travel=jumping?JUMP_DISTANCE/JUMP_DURATION*Math.min(dt,jumpTime):speed*dt;
+    let nx=clamp(p.x+(jumping?Math.cos(p.angle):dx)*travel,42,W-42),ny=clamp(p.y+(jumping?Math.sin(p.angle):dy)*travel,45,H-45);
+    if(jumping)p.effect=jumpTime-dt>1e-8?jumpTime-dt:0;
+    const airborne=p.role===0&&p.effect>0;
+    // Fly over trunks and rocks; resolve collisions only when landing.
+    if(p.role!==3&&!airborne){const safe=resolvePosition(nx,ny);nx=safe.x;ny=safe.y;}
+    p.x=nx;p.y=ny;p.hidden=!airborne&&p.role!==3&&(inReeds(p)&&Math.hypot(dx,dy)<.2||p.role===2&&p.effect>0);
+    if(p.role===0&&!airborne&&p.eatWait===0){
       const f=world.plants.find(q=>q.ready<=0&&dist(p,q)<47);
       if(f){f.ready=7;p.score++;p.eatWait=.65;learn(p,0);event(world,{type:'rice',hunter:p.id,from:-1,to:0,x:f.x,y:f.y});}
     }
@@ -248,9 +256,11 @@ class Renderer{
   pawn(c,p,pos,me,now){
     const v=project(pos.x,pos.y),moving=pos.moving>.7,role=p.role,phase=pos.walk,size=role===3?65:58;
     let lift=role===3?22+Math.sin(now/210+p.base)*3:moving?Math.abs(Math.sin(phase))*(role===0||role===1?7:2):0;
-    if(p.effect>0&&role===0)lift+=Math.sin((.65-p.effect)/.65*Math.PI)*28;if(p.effect>0&&role===3)lift*=.3;
+    const jumpLift=role===0&&p.effect>0?Math.sin(Math.max(0,Math.min(1,1-pos.jump/JUMP_DURATION))*Math.PI)*JUMP_HEIGHT:0;
+    if(jumpLift>0)lift=jumpLift;if(p.effect>0&&role===3)lift*=.3;
     c.save();if(p.hidden)c.globalAlpha=.43;
-    c.fillStyle='#31563935';c.beginPath();c.ellipse(v.x,v.y,19,7,0,0,7);c.fill();
+    const shadowScale=1-jumpLift/JUMP_HEIGHT*.4;
+    c.fillStyle='#31563935';c.beginPath();c.ellipse(v.x,v.y,19*shadowScale,7*shadowScale,0,0,7);c.fill();
     if(p.id===me?.id){c.strokeStyle='#fffef1';c.lineWidth=3;c.beginPath();c.ellipse(v.x,v.y,25,10,0,0,7);c.stroke();}
     if(p.protect>0){c.strokeStyle='#fff5ab';c.lineWidth=3;c.setLineDash([5,4]);c.beginPath();c.ellipse(v.x,v.y-20,32,40,0,0,7);c.stroke();c.setLineDash([]);}
     if(p.effect>0&&role===1){const end=project(pos.x+Math.cos(p.angle)*130,pos.y+Math.sin(p.angle)*130,15);c.strokeStyle='#ef93a1';c.lineWidth=5;c.lineCap='round';c.beginPath();c.moveTo(v.x,v.y-18);c.lineTo(end.x,end.y);c.stroke();}
@@ -271,7 +281,10 @@ class Renderer{
     const objects=[];for(const p of [...DECOR,...TREES])objects.push({depth:p.y,kind:'tree',p});for(const p of ROCKS)objects.push({depth:p.y,kind:'rock',p});
     for(const r of REEDS)for(let i=0;i<7;i++){const a=i*Math.PI*2/6,rad=i===6?0:66,p={x:r.x+Math.cos(a)*rad,y:r.y+Math.sin(a)*rad*.65};objects.push({depth:p.y,kind:'reed',p});}
     for(const p of world.plants)objects.push({depth:p.y,kind:'rice',p});const all=Object.values(world.players).filter(p=>p.online);
-    for(const p of all){if(p.respawn>0||!teacher&&me&&!visibleTo(me,p))continue;const prev=this.positions[p.id]||(this.positions[p.id]={x:p.x,y:p.y,walk:0,moving:0});const moved=dist(prev,p);if(moved>300){prev.x=p.x;prev.y=p.y;}else{prev.x+=(p.x-prev.x)*Math.min(1,dt*15);prev.y+=(p.y-prev.y)*Math.min(1,dt*15);}prev.moving=moved;prev.walk+=moved*.03;objects.push({depth:p.y+(p.role===3?10000:0),kind:'pawn',p,pos:prev});}objects.sort((a,b)=>a.depth-b.depth);
+    for(const p of all){if(p.respawn>0||!teacher&&me&&!visibleTo(me,p))continue;const prev=this.positions[p.id]||(this.positions[p.id]={x:p.x,y:p.y,walk:0,moving:0});const moved=dist(prev,p);if(moved>300){prev.x=p.x;prev.y=p.y;}else{prev.x+=(p.x-prev.x)*Math.min(1,dt*15);prev.y+=(p.y-prev.y)*Math.min(1,dt*15);}prev.moving=moved;prev.walk+=moved*.03;
+      // Count down locally between the existing four network updates per second.
+      prev.jump=p.role===0&&p.effect>0?(prev.jumpSeq===p.actionSeq?Math.min(p.effect,Math.max(0,prev.jump-(world.phase==='playing'?dt:0))):p.effect):0;prev.jumpSeq=p.actionSeq;
+      objects.push({depth:p.y+(p.role===3||p.role===0&&p.effect>0?10000:0),kind:'pawn',p,pos:prev});}objects.sort((a,b)=>a.depth-b.depth);
     for(const o of objects){const v=project(o.p.x,o.p.y);if(v.x<this.left-170||v.x>this.left+vw+170||v.y<this.top-170||v.y>this.top+vh+170)continue;
       if(o.kind==='pawn')this.pawn(c,o.p,o.pos,me,now);
       if(o.kind==='tree'){const fade=me&&!teacher&&Math.abs(me.x-o.p.x)<70&&me.y<o.p.y+12&&me.y>o.p.y-125;this.prop(c,0,o.p,TREES.includes(o.p)?145:140,fade?.35:1);}

@@ -1,0 +1,190 @@
+{
+  "date": "2026-10-21",
+  "kind": "local-emulator-protocol-measurement",
+  "measurementVersion": 2,
+  "complete": true,
+  "results": [
+    {
+      "students": 25,
+      "bots": 2,
+      "connections": 26,
+      "optimized": false,
+      "initialBytes": 361340,
+      "active": {
+        "bytes": 11245499,
+        "ms": 6258,
+        "worldWrites": 35,
+        "inputWrites": 885
+      },
+      "idle": {
+        "bytes": 2420,
+        "ms": 3143,
+        "worldWrites": 3,
+        "inputWrites": 0,
+        "transitionBytes": 317688
+      },
+      "transitionsBytes": 2541712,
+      "activeBytesPerSecond": 1796979.7059763502,
+      "idleBytesPerSecond": 769.9650015908368,
+      "estimated40MinuteClassBytes": 651386474.7547313,
+      "estimated40MinutesContinuousBytes": 4313112634.343241,
+      "notes": "Local protocol bytes; estimates use 4 x 90-second rounds, 34 minutes waiting/discussion and eight phase changes. Transition traffic is separated from steady idle traffic. Public TLS/reconnect overhead and existing account usage are excluded."
+    },
+    {
+      "students": 25,
+      "bots": 2,
+      "connections": 26,
+      "optimized": true,
+      "initialBytes": 191493,
+      "active": {
+        "bytes": 1484575,
+        "ms": 6240,
+        "worldWrites": 24,
+        "inputWrites": 500
+      },
+      "idle": {
+        "bytes": 2282,
+        "ms": 3129,
+        "worldWrites": 0,
+        "inputWrites": 0,
+        "transitionBytes": 73340
+      },
+      "transitionsBytes": 586720,
+      "activeBytesPerSecond": 237912.66025641025,
+      "idleBytesPerSecond": 729.3064876957494,
+      "estimated40MinuteClassBytes": 87914555.92720702,
+      "estimated40MinutesContinuousBytes": 571181877.6153846,
+      "notes": "Local protocol bytes; estimates use 4 x 90-second rounds, 34 minutes waiting/discussion and eight phase changes. Transition traffic is separated from steady idle traffic. Public TLS/reconnect overhead and existing account usage are excluded."
+    },
+    {
+      "students": 31,
+      "bots": 2,
+      "connections": 32,
+      "optimized": false,
+      "initialBytes": 548779,
+      "active": {
+        "bytes": 13175501,
+        "ms": 6283,
+        "worldWrites": 30,
+        "inputWrites": 981
+      },
+      "idle": {
+        "bytes": 3320,
+        "ms": 3147,
+        "worldWrites": 3,
+        "inputWrites": 0,
+        "transitionBytes": 433934
+      },
+      "transitionsBytes": 3471728,
+      "activeBytesPerSecond": 2097007.9579818556,
+      "idleBytesPerSecond": 1054.9729901493486,
+      "estimated40MinuteClassBytes": 761095516.7733728,
+      "estimated40MinutesContinuousBytes": 5033367878.156453,
+      "notes": "Local protocol bytes; estimates use 4 x 90-second rounds, 34 minutes waiting/discussion and eight phase changes. Transition traffic is separated from steady idle traffic. Public TLS/reconnect overhead and existing account usage are excluded."
+    },
+    {
+      "students": 31,
+      "bots": 2,
+      "connections": 32,
+      "optimized": true,
+      "initialBytes": 263609,
+      "active": {
+        "bytes": 2053296,
+        "ms": 6425,
+        "worldWrites": 23,
+        "inputWrites": 589
+      },
+      "idle": {
+        "bytes": 3150,
+        "ms": 3131,
+        "worldWrites": 0,
+        "inputWrites": 0,
+        "transitionBytes": 62510
+      },
+      "transitionsBytes": 500080,
+      "activeBytesPerSecond": 319579.1439688716,
+      "idleBytesPerSecond": 1006.068348770361,
+      "estimated40MinuteClassBytes": 117864560.26028532,
+      "estimated40MinutesContinuousBytes": 767253554.5252919,
+      "notes": "Local protocol bytes; estimates use 4 x 90-second rounds, 34 minutes waiting/discussion and eight phase changes. Transition traffic is separated from steady idle traffic. Public TLS/reconnect overhead and existing account usage are excluded."
+    },
+    {
+      "students": 36,
+      "bots": 2,
+      "connections": 37,
+      "optimized": false,
+      "initialBytes": 699401,
+      "active": {
+        "bytes": 19635070,
+        "ms": 6240,
+        "worldWrites": 36,
+        "inputWrites": 1296
+      },
+      "idle": {
+        "bytes": 3810,
+        "ms": 3109,
+        "worldWrites": 3,
+        "inputWrites": 0,
+        "transitionBytes": 537064
+      },
+      "transitionsBytes": 4296808,
+      "activeBytesPerSecond": 3146645.8333333335,
+      "idleBytesPerSecond": 1225.4744290768735,
+      "estimated40MinuteClassBytes": 1140288676.835317,
+      "estimated40MinutesContinuousBytes": 7552649401,
+      "notes": "Local protocol bytes; estimates use 4 x 90-second rounds, 34 minutes waiting/discussion and eight phase changes. Transition traffic is separated from steady idle traffic. Public TLS/reconnect overhead and existing account usage are excluded."
+    },
+    {
+      "students": 36,
+      "bots": 2,
+      "connections": 37,
+      "optimized": true,
+      "initialBytes": 328714,
+      "active": {
+        "bytes": 2635492,
+        "ms": 6236,
+        "worldWrites": 24,
+        "inputWrites": 720
+      },
+      "idle": {
+        "bytes": 3635,
+        "ms": 3141,
+        "worldWrites": 0,
+        "inputWrites": 0,
+        "transitionBytes": 122701
+      },
+      "transitionsBytes": 981608,
+      "activeBytesPerSecond": 422625.4008980116,
+      "idleBytesPerSecond": 1157.2747532632918,
+      "estimated40MinuteClassBytes": 155816306.81994128,
+      "estimated40MinutesContinuousBytes": 1014629676.1552278,
+      "notes": "Local protocol bytes; estimates use 4 x 90-second rounds, 34 minutes waiting/discussion and eight phase changes. Transition traffic is separated from steady idle traffic. Public TLS/reconnect overhead and existing account usage are excluded."
+    },
+    {
+      "students": 36,
+      "bots": 4,
+      "connections": 37,
+      "optimized": true,
+      "initialBytes": 375686,
+      "active": {
+        "bytes": 3259904,
+        "ms": 6265,
+        "worldWrites": 24,
+        "inputWrites": 720
+      },
+      "idle": {
+        "bytes": 3635,
+        "ms": 3142,
+        "worldWrites": 0,
+        "inputWrites": 0,
+        "transitionBytes": 93619
+      },
+      "transitionsBytes": 748952,
+      "activeBytesPerSecond": 520335.8339984038,
+      "idleBytesPerSecond": 1156.906429026098,
+      "estimated40MinuteClassBytes": 190805627.3546386,
+      "estimated40MinutesContinuousBytes": 1249181687.5961692,
+      "notes": "Local protocol bytes; estimates use 4 x 90-second rounds, 34 minutes waiting/discussion and eight phase changes. Transition traffic is separated from steady idle traffic. Public TLS/reconnect overhead and existing account usage are excluded."
+    }
+  ]
+}

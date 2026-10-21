@@ -1,4 +1,5 @@
 import {firebaseConfig as localConfig} from './config.js';
+import {packRealtimeWorld,worldPatch,normalizeInput,inputDue} from './sync.js';
 export class Network {
   constructor(classId,onError){this.classId=classId;this.onError=onError;this.stops=[];this.offset=0;this.connected=false;}
   async init(teacher=false){
@@ -26,6 +27,22 @@ export class Network {
   async get(p){return (await this.D.get(this.ref(p))).val();}
   set(p,value){return this.D.set(this.ref(p),value);}
   update(p,value){return this.D.update(this.ref(p),value);}
+  enqueueWorldWrite(work){const next=(this.worldWrite||Promise.resolve()).catch(()=>{}).then(work);this.worldWrite=next;return next;}
+  publishWorld(world){
+    const packet=packRealtimeWorld(world);
+    return this.enqueueWorldWrite(async()=>{
+      const patch=worldPatch(this.lastWorldPacket,packet);if(!patch)return false;
+      if(!this.lastWorldPacket)await this.set('world',packet);else await this.update('world',patch);
+      this.lastWorldPacket=packet;return true;
+    });
+  }
+  resetLesson(meta,world){
+    const packet=packRealtimeWorld(world);this.lastInput=null;
+    return this.enqueueWorldWrite(async()=>{
+      await this.update('',{meta,world:packet,members:null,inputs:null,boards:null});
+      this.lastWorldPacket=packet;
+    });
+  }
   async claimClass(){
     const result=await this.D.runTransaction(this.ref('owner'),current=>current===null?this.uid:undefined);
     const owner=result.snapshot.val();if(owner!==this.uid)throw new Error('이 교실은 다른 교사 계정으로 열었습니다. 해당 계정으로 로그인하세요.');
@@ -41,6 +58,7 @@ export class Network {
   }
   async presence(member,epoch){
     this.presenceStop?.();
+    this.lastInput=null;
     this.member={...member,joinedAt:member.joinedAt||this.now()};this.epoch=epoch;
     const session=this.presenceSession={};
     let resolveReady,rejectReady,settled=false,connecting=false;
@@ -68,6 +86,10 @@ export class Network {
     return ready;
   }
   async leave(){this.member=null;this.presenceSession=null;this.presenceStop?.();if(this.uid){await this.update(`members/${this.uid}`,{online:false});await this.set(`inputs/${this.uid}`,null);}}
-  sendInput(input,epoch){return this.set(`inputs/${this.uid}`,{...input,epoch,at:this.D.serverTimestamp()});}
+  async sendInput(input,epoch){
+    const value=normalizeInput(input),now=Date.now();if(!inputDue(this.lastInput,value,epoch,now))return false;
+    await this.set(`inputs/${this.uid}`,{...value,epoch,at:this.D.serverTimestamp()});
+    this.lastInput={...value,epoch,sentAt:now};return true;
+  }
   dispose(){this.member=null;this.presenceSession=null;for(const stop of this.stops)stop();this.stops=[];}
 }

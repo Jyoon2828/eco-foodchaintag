@@ -1,4 +1,4 @@
-import {W,H,ROLES,REEDS,ROCKS,TREES,visibleTo,canEat,dist} from './engine.js';
+import {W,H,JUMP_DURATION,JUMP_HEIGHT,ROLES,REEDS,ROCKS,TREES,visibleTo,canEat,dist} from './engine.js';
 import {MAP_MARGIN,MAP_WIDTH,MAP_HEIGHT,project,unproject,facingFrame} from './projection.js';
 import {ASSET_FRAMES} from './asset-frames.js';
 const animals=new Image();animals.src='./assets/animals-pixel.png';
@@ -45,9 +45,11 @@ export class Renderer{
   pawn(c,p,pos,me,now){
     const v=project(pos.x,pos.y),moving=pos.moving>.7,role=p.role,phase=pos.walk,size=role===3?65:58;
     let lift=role===3?22+Math.sin(now/210+p.base)*3:moving?Math.abs(Math.sin(phase))*(role===0||role===1?7:2):0;
-    if(p.effect>0&&role===0)lift+=Math.sin((.65-p.effect)/.65*Math.PI)*28;if(p.effect>0&&role===3)lift*=.3;
+    const jumpLift=role===0&&p.effect>0?Math.sin(Math.max(0,Math.min(1,1-pos.jump/JUMP_DURATION))*Math.PI)*JUMP_HEIGHT:0;
+    if(jumpLift>0)lift=jumpLift;if(p.effect>0&&role===3)lift*=.3;
     c.save();if(p.hidden)c.globalAlpha=.43;
-    c.fillStyle='#31563935';c.beginPath();c.ellipse(v.x,v.y,19,7,0,0,7);c.fill();
+    const shadowScale=1-jumpLift/JUMP_HEIGHT*.4;
+    c.fillStyle='#31563935';c.beginPath();c.ellipse(v.x,v.y,19*shadowScale,7*shadowScale,0,0,7);c.fill();
     if(p.id===me?.id){c.strokeStyle='#fffef1';c.lineWidth=3;c.beginPath();c.ellipse(v.x,v.y,25,10,0,0,7);c.stroke();}
     if(p.protect>0){c.strokeStyle='#fff5ab';c.lineWidth=3;c.setLineDash([5,4]);c.beginPath();c.ellipse(v.x,v.y-20,32,40,0,0,7);c.stroke();c.setLineDash([]);}
     if(p.effect>0&&role===1){const end=project(pos.x+Math.cos(p.angle)*130,pos.y+Math.sin(p.angle)*130,15);c.strokeStyle='#ef93a1';c.lineWidth=5;c.lineCap='round';c.beginPath();c.moveTo(v.x,v.y-18);c.lineTo(end.x,end.y);c.stroke();}
@@ -68,7 +70,10 @@ export class Renderer{
     const objects=[];for(const p of [...DECOR,...TREES])objects.push({depth:p.y,kind:'tree',p});for(const p of ROCKS)objects.push({depth:p.y,kind:'rock',p});
     for(const r of REEDS)for(let i=0;i<7;i++){const a=i*Math.PI*2/6,rad=i===6?0:66,p={x:r.x+Math.cos(a)*rad,y:r.y+Math.sin(a)*rad*.65};objects.push({depth:p.y,kind:'reed',p});}
     for(const p of world.plants)objects.push({depth:p.y,kind:'rice',p});const all=Object.values(world.players).filter(p=>p.online);
-    for(const p of all){if(p.respawn>0||!teacher&&me&&!visibleTo(me,p))continue;const prev=this.positions[p.id]||(this.positions[p.id]={x:p.x,y:p.y,walk:0,moving:0});const moved=dist(prev,p);if(moved>300){prev.x=p.x;prev.y=p.y;}else{prev.x+=(p.x-prev.x)*Math.min(1,dt*15);prev.y+=(p.y-prev.y)*Math.min(1,dt*15);}prev.moving=moved;prev.walk+=moved*.03;objects.push({depth:p.y+(p.role===3?10000:0),kind:'pawn',p,pos:prev});}objects.sort((a,b)=>a.depth-b.depth);
+    for(const p of all){if(p.respawn>0||!teacher&&me&&!visibleTo(me,p))continue;const prev=this.positions[p.id]||(this.positions[p.id]={x:p.x,y:p.y,walk:0,moving:0});const moved=dist(prev,p);if(moved>300){prev.x=p.x;prev.y=p.y;}else{prev.x+=(p.x-prev.x)*Math.min(1,dt*15);prev.y+=(p.y-prev.y)*Math.min(1,dt*15);}prev.moving=moved;prev.walk+=moved*.03;
+      // Count down locally between the existing four network updates per second.
+      prev.jump=p.role===0&&p.effect>0?(prev.jumpSeq===p.actionSeq?Math.min(p.effect,Math.max(0,prev.jump-(world.phase==='playing'?dt:0))):p.effect):0;prev.jumpSeq=p.actionSeq;
+      objects.push({depth:p.y+(p.role===3||p.role===0&&p.effect>0?10000:0),kind:'pawn',p,pos:prev});}objects.sort((a,b)=>a.depth-b.depth);
     for(const o of objects){const v=project(o.p.x,o.p.y);if(v.x<this.left-170||v.x>this.left+vw+170||v.y<this.top-170||v.y>this.top+vh+170)continue;
       if(o.kind==='pawn')this.pawn(c,o.p,o.pos,me,now);
       if(o.kind==='tree'){const fade=me&&!teacher&&Math.abs(me.x-o.p.x)<70&&me.y<o.p.y+12&&me.y>o.p.y-125;this.prop(c,0,o.p,TREES.includes(o.p)?145:140,fade?.35:1);}

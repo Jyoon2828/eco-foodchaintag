@@ -1,4 +1,5 @@
 export const W = 1800, H = 1100;
+export const JUMP_DURATION=.75, JUMP_DISTANCE=330, JUMP_HEIGHT=96;
 export const ROLES = [
   {name:'메뚜기',emoji:'🦗',color:'#749b32',food:'벼',enemy:'개구리',skill:'멀리 뛰기',speed:255,cd:4},
   {name:'개구리',emoji:'🐸',color:'#23856c',food:'메뚜기',enemy:'뱀',skill:'혀 뻗기',speed:235,cd:3},
@@ -116,21 +117,28 @@ export function step(world,inputs={},dt=.05){
   const all=Object.values(world.players).filter(p=>p.online);
   for(const f of world.plants)f.ready=Math.max(0,f.ready-dt);
   for(const p of all){
+    let jumpTime=p.role===0?p.effect:0;
     p.cool=Math.max(0,p.cool-dt);p.effect=Math.max(0,p.effect-dt);p.protect=Math.max(0,p.protect-dt);p.eatWait=Math.max(0,p.eatWait-dt);
     if(p.respawn>0){p.respawn=Math.max(0,p.respawn-dt);if(p.respawn===0)spawn(p,world);continue;}
     const i=p.bot?aiInput(world,p):(inputs[p.id]||{});
     let dx=clamp(Number(i.x)||0,-1,1),dy=clamp(Number(i.y)||0,-1,1);const norm=Math.max(1,Math.hypot(dx,dy));dx/=norm;dy/=norm;
-    if(Math.hypot(dx,dy)>.03)p.angle=Math.atan2(dy,dx);
+    if(jumpTime<=0&&Math.hypot(dx,dy)>.03)p.angle=Math.atan2(dy,dx);
     if(Number(i.action)>p.actionSeq){
       p.actionSeq=Number(i.action);
-      if(p.cool===0){p.cool=ROLES[p.role].cd;p.effect=p.role===2?3:p.role===1?.3:.65;event(world,{type:'skill',hunter:p.id,role:p.role,x:p.x,y:p.y});}
+      if(p.cool===0){p.cool=ROLES[p.role].cd;p.effect=p.role===0?JUMP_DURATION:p.role===2?3:p.role===1?.3:.65;if(p.role===0)jumpTime=JUMP_DURATION;event(world,{type:'skill',hunter:p.id,role:p.role,x:p.x,y:p.y});}
     }
     let speed=ROLES[p.role].speed;
-    if(p.effect>0){if(p.role===0||p.role===3)speed*=1.8;if(p.role===2)speed*=.55;}
-    let nx=clamp(p.x+dx*speed*dt,42,W-42),ny=clamp(p.y+dy*speed*dt,45,H-45);
-    if(p.role!==3){const safe=resolvePosition(nx,ny);nx=safe.x;ny=safe.y;}
-    p.x=nx;p.y=ny;p.hidden=p.role!==3&&(inReeds(p)&&Math.hypot(dx,dy)<.2||p.role===2&&p.effect>0);
-    if(p.role===0&&p.eatWait===0){
+    if(p.effect>0){if(p.role===3)speed*=1.8;if(p.role===2)speed*=.55;}
+    // A jump follows the takeoff direction even after the controls are released.
+    // Integrate the last partial frame so different step sizes travel equally far.
+    const jumping=jumpTime>0,travel=jumping?JUMP_DISTANCE/JUMP_DURATION*Math.min(dt,jumpTime):speed*dt;
+    let nx=clamp(p.x+(jumping?Math.cos(p.angle):dx)*travel,42,W-42),ny=clamp(p.y+(jumping?Math.sin(p.angle):dy)*travel,45,H-45);
+    if(jumping)p.effect=jumpTime-dt>1e-8?jumpTime-dt:0;
+    const airborne=p.role===0&&p.effect>0;
+    // Fly over trunks and rocks; resolve collisions only when landing.
+    if(p.role!==3&&!airborne){const safe=resolvePosition(nx,ny);nx=safe.x;ny=safe.y;}
+    p.x=nx;p.y=ny;p.hidden=!airborne&&p.role!==3&&(inReeds(p)&&Math.hypot(dx,dy)<.2||p.role===2&&p.effect>0);
+    if(p.role===0&&!airborne&&p.eatWait===0){
       const f=world.plants.find(q=>q.ready<=0&&dist(p,q)<47);
       if(f){f.ready=7;p.score++;p.eatWait=.65;learn(p,0);event(world,{type:'rice',hunter:p.id,from:-1,to:0,x:f.x,y:f.y});}
     }

@@ -1,4 +1,5 @@
-import {createWorld,addPlayer,syncMembers,startRound,step,packWorld,unpackWorld,ROLES,groupSummary,dist,findPath} from './engine.js';
+import {createWorld,addPlayer,syncMembers,startRound,step,ROLES,groupSummary,dist,findPath} from './engine.js';
+import {unpackRealtimeWorld,WORLD_INTERVAL_MS,INPUT_MAX_AGE_MS,HOST_HEARTBEAT_MS,HOST_TIMEOUT_MS} from './sync.js';
 import {screenVectorToWorld} from './projection.js';
 import {Renderer} from './render.js';
 import {Network} from './network.js';
@@ -29,9 +30,9 @@ function bindWatchers(){
     S.meta=m;S.epoch=m.epoch;
     if(S.teacher&&m.hostToken!==S.token){S.host=false;notice('다른 교사 창이 수업을 진행하고 있습니다. 이 창의 조작을 멈춥니다.');}
   });
-  S.net.watch('world',w=>{if(!w)return;S.hostReceived=Date.now();if(!S.host){S.world=unpackWorld(w);if(S.world.players[S.me])S.action=Math.max(S.action,S.world.players[S.me].actionSeq);if(w.phase==='reflection'&&!S.teacher&&S.entered)openReflection();}});
-  S.net.watch('members',m=>{S.members=m||{};});
-  S.net.watch('boards',b=>{S.boards=b||{};if(!$('reflection').classList.contains('hidden'))renderBoard();});
+  S.net.watch('world',w=>{if(!w)return;S.hostReceived=Date.now();if(!S.host){S.world=unpackRealtimeWorld(w);if(S.world.players[S.me])S.action=Math.max(S.action,S.world.players[S.me].actionSeq);if(S.world.phase==='reflection'&&!S.teacher&&S.entered)openReflection();}});
+  if(S.teacher)S.net.watch('members',m=>{S.members=m||{};});
+  S.net.watch(S.teacher?'boards':`boards/${S.group}`,b=>{if(S.teacher)S.boards=b||{};else if(b)S.boards[S.group]=b;else delete S.boards[S.group];if(!$('reflection').classList.contains('hidden'))renderBoard();});
   if(S.teacher)S.net.watch('inputs',i=>{S.inputs=i||{};});
 }
 $('joinForm').onsubmit=run(async e=>{
@@ -49,7 +50,7 @@ $('joinForm').onsubmit=run(async e=>{
 });
 async function connectTeacher(){
   const n=S.net;await n.claimClass();const [meta,w]=await Promise.all([n.get('meta'),n.get('world')]);
-  await n.hostLease(S.token);S.teacher=true;S.host=true;S.demo=false;S.entered=true;S.meta={...meta,hostToken:S.token,hostOnline:true,hostBeat:n.now()};S.epoch=meta?.epoch;S.world=w?unpackWorld(w):null;
+  await n.hostLease(S.token);S.teacher=true;S.host=true;S.demo=false;S.entered=true;S.meta={...meta,hostToken:S.token,hostOnline:true,hostBeat:n.now()};S.epoch=meta?.epoch;S.world=w?unpackRealtimeWorld(w):null;
   if(!S.epoch||!S.world)await newLesson(false);
   else {S.world.players||={};S.world.events||=[];S.world.plants||=[];if(S.world.phase==='playing')S.world.phase='paused';await publish();}
   $('duration').value=S.world.duration;$('botCount').value=S.world.bots;bindWatchers();gameView();$('connection').textContent='연결됨';
@@ -59,7 +60,7 @@ async function newLesson(ask=true){
   if(ask&&!confirm('현재 놀이 기록과 모둠 결과를 지우고 새 수업을 열까요?'))return;
   S.quizDone={};S.epoch=crypto.randomUUID();S.world=createWorld(+$('duration').value,+$('botCount').value);S.inputs={};S.members={};S.boards={};S.overlayKey='';S.lastEvent=0;
   S.meta={epoch:S.epoch,hostToken:S.token,hostOnline:true,hostBeat:S.net?.now()||Date.now()};
-  if(!S.demo)await S.net.update('',{meta:S.meta,world:packWorld(S.world),members:null,inputs:null,boards:null});
+  if(!S.demo)await S.net.resetLesson(S.meta,S.world);
   if(S.demo&&S.teacher)demoMembers();
 }
 function demoMembers(){for(let i=0;i<25;i++){const id=`pupil_${i}`;S.members[id]={group:Math.floor(i/4)+1>6?6:Math.floor(i/4)+1,seat:i<24?i%4+1:5,online:true,epoch:S.epoch,joinedAt:i};}syncMembers(S.world,S.members);}
@@ -69,7 +70,7 @@ function practice(teacher=false){
   gameView();$('connection').textContent='이 기기에서 연습';if(!teacher)$('helpDialog').showModal();
 }
 $('practiceBtn').onclick=()=>practice(false);$('teacherDemo').onclick=()=>practice(true);
-async function publish(){if(S.host&&!S.demo)await S.net.set('world',packWorld(S.world));}
+async function publish(){if(S.host&&!S.demo)await S.net.publishWorld(S.world);}
 function validHost(){if(!S.teacher&&!S.demo)return false;if(!S.host){notice('수업을 진행하는 교사 창에서 조작해 주세요.');return false;}return true;}
 $('newClass').onclick=run(()=>validHost()&&newLesson());
 $('startBtn').onclick=run(async()=>{
@@ -115,26 +116,23 @@ setInterval(()=>{
     if(now-S.lastMemberSync>700){S.lastMemberSync=now;if(S.teacher){const current=Object.fromEntries(Object.entries(S.members).filter(([,m])=>m.epoch===S.epoch));syncMembers(S.world,current);}}
     let inputs=S.inputs;
     if(S.demo){inputs={};for(const p of Object.values(S.world.players))if(!p.bot&&p.id!==S.me)inputs[p.id]={x:Math.sin(now/2200+p.base),y:Math.cos(now/3000+p.base*2),action:Math.floor(now/4000)};if(S.me)inputs[S.me]=moveInput();}
-    else inputs=Object.fromEntries(Object.entries(S.inputs).filter(([,i])=>i.epoch===S.epoch&&S.net.now()-i.at<650));
+    else inputs=Object.fromEntries(Object.entries(S.inputs).filter(([,i])=>i.epoch===S.epoch&&S.net.now()-i.at<INPUT_MAX_AGE_MS));
     step(S.world,inputs,.05);
-    if(!S.demo&&!worldBusy&&now-S.lastPacket>(S.world.phase==='playing'?140:950)){
+    if(!S.demo&&S.net.connected&&!worldBusy&&now-S.lastPacket>=(S.world.phase==='playing'?WORLD_INTERVAL_MS:1000)){
       S.lastPacket=now;worldBusy=true;publish().then(()=>writeFailures=0).catch(e=>{if(++writeFailures===1)fail(e);if(writeFailures>=3){S.world.phase='paused';notice('연결이 불안정하여 놀이를 멈췄습니다. 연결 후 다시 시작해 주세요.');}}).finally(()=>worldBusy=false);
     }
-    if(!S.demo&&S.net.connected&&now-S.lastBeat>2200){S.lastBeat=now;S.net.update('meta',{hostBeat:S.net.now(),hostOnline:true}).catch(fail);}
+    if(!S.demo&&S.net.connected&&now-S.lastBeat>=HOST_HEARTBEAT_MS){S.lastBeat=now;S.net.update('meta',{hostBeat:S.net.now(),hostOnline:true}).catch(fail);}
   }else if(S.net?.connected&&S.world.phase==='playing'&&S.meta.hostOnline&&now-S.hostReceived<4000&&!packetBusy){
     packetBusy=true;S.net.sendInput(moveInput(),S.epoch).catch(fail).finally(()=>packetBusy=false);
   }
 },50);
-// Input publishing is coalesced by the SDK when outstanding; send at most 8Hz.
-let inputGate=0;const originalSend=Network.prototype.sendInput;
-Network.prototype.sendInput=function(...args){if(Date.now()-inputGate<125)return Promise.resolve();inputGate=Date.now();return originalSend.apply(this,args);};
 function updateUI(){
   const w=S.world;if(!w)return;const me=w.players[S.me],role=me?.role??0;
   const seconds=Math.ceil(w.remaining);$('roundText').textContent=w.phase==='lobby'?'탐험 준비':`${w.round+1} / 4 라운드`;$('timer').textContent=`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;
   if(me){$('rolePortrait').className=`animal portrait a${role}`;$('myLabel').textContent=S.demo?'혼자 연습':me.label;$('myRole').textContent=ROLES[role].name;$('foodHint').textContent=`먹이: ${ROLES[role].food} · 천적: ${ROLES[role].enemy}`;$('myScore').textContent=me.score;$('actionText').textContent=ROLES[role].skill;$('actionIcon').textContent=['↗','⌁','♧','↓'][role];$('cooldownText').textContent=me.cool>0?`${me.cool.toFixed(1)}초 뒤`:'준비 완료';$('actionBtn').style.opacity=me.cool>0?'.6':'1';
     $('respawnNotice').classList.toggle('hidden',me.respawn<=0||w.phase!=='playing');if(me.respawn>0)$('respawnNotice').innerHTML=`${ROLES[role].emoji} 다시 출발해요!<br><small>${Math.ceil(me.respawn)}초</small>`;
   }
-  const stale=!S.demo&&!S.teacher&&(!S.net?.connected||!S.meta.hostOnline||Date.now()-S.hostReceived>5000);$('hostWarning').classList.toggle('hidden',!stale);
+  const stale=!S.demo&&!S.teacher&&(!S.net?.connected||!S.meta.hostOnline||S.net.now()-(S.meta.hostBeat||0)>HOST_TIMEOUT_MS||w.phase==='playing'&&Date.now()-S.hostReceived>5000);$('hostWarning').classList.toggle('hidden',!stale);
   if(S.teacher){
     const online=Object.values(S.members).filter(m=>m.online&&m.epoch===S.epoch).length;$('memberCount').textContent=`${online}명 접속`;
     $('startBtn').textContent=w.phase==='paused'?'놀이 계속하기':w.phase==='between'?'다음 라운드 시작':'첫 라운드 시작';$('startBtn').disabled=w.phase==='playing'||w.phase==='reflection'||w.round===3&&w.phase==='between';$('pauseBtn').textContent=w.phase==='paused'?'계속하기':'잠깐 멈춤';$('nextBtn').textContent=w.round<3?'다음 역할':'정리 활동';
