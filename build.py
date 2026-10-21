@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT / 'source'
 images = json.loads((SOURCE / 'assets-inline.json').read_text())
 modules = ['engine.js', 'projection.js', 'quiz.js', 'asset-frames.js',
-           'motion-view.js', 'render.js', 'solo-state.js', 'solo.js']
+           'motion-view.js', 'render.js', 'solo-state.js', 'audio.js', 'solo.js']
 parts = []
 for name in modules:
     source = (SOURCE / name).read_text()

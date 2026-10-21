@@ -5,3 +5,17 @@
 @media(prefers-reduced-motion:reduce){button:active{transform:none}}
 
 @media(max-width:380px){.round-clock>span{display:none}}
+
+.bar-actions #soundButton{font-size:21px;line-height:1}
+#soundDialog{width:min(460px,calc(100% - 28px))}
+#soundDialog h2{font-size:23px;line-height:1.4}
+.sound-intro{font-size:13px;line-height:1.7;color:#748365;margin-bottom:20px}
+.sound-option{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:70px;border-top:1px solid #dce7ce;cursor:pointer}
+.sound-option b,.sound-option small{display:block}.sound-option b{font-size:15px}.sound-option small{font-size:11px;color:#748365;line-height:1.7;margin-top:4px}
+.sound-option input{width:23px;height:23px;accent-color:#477956;cursor:pointer;flex-shrink:0}
+.sound-volume{display:block;border-top:1px solid #dce7ce;padding-top:20px;margin:0 0 12px;font-weight:700;font-size:14px}
+.sound-volume>span{display:flex;justify-content:space-between}.sound-volume output{font-variant-numeric:tabular-nums;color:#739951}
+.sound-volume input{display:block;width:100%;height:40px;margin:8px 0 0;accent-color:#477956;cursor:pointer}
+.sound-status{font-size:11px;line-height:1.7;color:#748365;min-height:38px}
+input:focus-visible{outline:3px solid #e2aa44;outline-offset:3px}
+@media(max-width:600px){.bar-actions{gap:3px}.bar-actions button{min-width:32px;padding:5px 6px}.game-bar{gap:5px}.bar-actions #soundButton{font-size:20px}#soundDialog{padding:22px}#soundDialog h2{font-size:21px}}

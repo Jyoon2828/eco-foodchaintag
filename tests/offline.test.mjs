@@ -16,5 +16,5 @@ test('every HTML ID is unique and primary solo controls are present',()=>{
   const markup=html.slice(0,html.indexOf('<script>'));
   const ids=Array.from(markup.matchAll(/\bid="([^"]+)"/g),m=>m[1]);
   assert.equal(new Set(ids).size,ids.length);
-  for(const id of ['startButton','joystick','actionButton','missionProgress','roundPanel','summaryPanel','helpDialog'])assert.ok(ids.includes(id));
+  for(const id of ['startButton','joystick','actionButton','missionProgress','roundPanel','summaryPanel','helpDialog','soundDialog','soundButton','musicEnabled','effectsEnabled','soundVolume','soundPreview'])assert.ok(ids.includes(id));
 });
