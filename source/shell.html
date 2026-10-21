@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#477956"><meta name="description" content="숲 친구들과 혼자 즐기는 먹이사슬 술래잡기. 네 동물 역할을 맡아 먹이관계를 배워요.">
+  <title>먹이사슬 술래잡기 · 혼자 숲속 탐험</title>
+  <!-- GAME_STYLE -->
+</head>
+<body>
+<div id="app">
+  <header class="game-bar">
+    <div class="brand">🌿 <span>먹이사슬 술래잡기</span><small>혼자 숲속 탐험</small></div>
+    <div id="roundClock" class="round-clock" hidden><span id="roundLabel">1 / 4 라운드</span><b id="timer">1:30</b></div>
+    <nav class="bar-actions" aria-label="게임 메뉴"><button id="pauseButton" hidden>잠깐 멈춤</button><button id="mapButton" hidden aria-pressed="false">전체 맵</button><button id="helpButton" aria-label="놀이 방법">?</button><button id="fullButton" aria-label="전체 화면">⛶</button><button id="homeButton" hidden aria-label="처음으로">⌂</button></nav>
+  </header>
+  <main id="stage">
+    <canvas id="field" aria-label="숲속 게임장. 빈 곳을 누르거나 이동 조작판과 방향키로 움직여요."></canvas>
+    <aside id="hud" class="hud" hidden>
+      <div class="role-line"><span id="portrait" class="animal a0" aria-hidden="true"></span><div><small>지금 나의 역할</small><h1 id="roleName">메뚜기</h1><p id="foodHint">먹이: 벼 · 천적: 개구리</p></div></div>
+      <div class="mission-head"><b id="missionTitle">먹이 미션</b><strong id="missionCount">0 / 5</strong></div>
+      <p id="missionText" class="mission-text">벼 5개 이상 먹기</p>
+      <progress id="missionProgress" max="5" value="0" aria-label="먹이 미션 진행"></progress>
+      <small id="coverHint" class="cover-hint">나무·풀숲에서 멈추면 3초 보호</small>
+    </aside>
+    <div id="controls" class="controls" hidden>
+      <div id="joystick" class="joystick" aria-label="이동 조작판"><span id="stick"></span><small>이동</small></div>
+      <p class="control-tip">빈 곳을 눌러 이동해도 좋아요</p>
+      <button id="actionButton" class="action-button"><strong id="actionIcon">↗</strong><b id="actionName">멀리 뛰기</b><small id="cooldown">준비 완료</small></button>
+    </div>
+    <div id="respawn" class="respawn" hidden></div>
+    <div id="toast" class="toast" hidden role="status"></div>
+    <section id="home" class="overlay home-overlay">
+      <div class="home-card">
+        <span class="eyebrow">4학년 과학 · 생물과 환경</span>
+        <h1>작은 생물이 되어<br><em>숲속으로 출발!</em></h1>
+        <p class="intro">먹이를 찾고, 천적을 피하고, 풀숲에 숨어요.<br>네 가지 동물 역할로 먹이관계를 체험해 보세요.</p>
+        <div class="role-parade" aria-label="메뚜기, 개구리, 뱀, 매"><span><i class="animal a0"></i>메뚜기</span><b>→</b><span><i class="animal a1"></i>개구리</span><b>→</b><span><i class="animal a2"></i>뱀</span><b>→</b><span><i class="animal a3"></i>매</span></div>
+        <p class="start-note">나와 숲 친구 <b id="friendCount">12</b>마리로 시작 · 역할마다 <b id="durationNote">90</b>초</p>
+        <button id="startButton" class="primary start-button">숲속 탐험 시작하기 <span>→</span></button>
+        <details class="settings"><summary>체험 시간·숲 친구 바꾸기</summary><div><label>한 역할의 시간<select id="duration"><option value="60">60초</option><option value="90" selected>90초</option><option value="120">120초</option></select></label><label>처음 숲 친구<select id="bots"><option value="2">8마리</option><option value="3" selected>12마리</option><option value="4">16마리</option></select></label></div></details>
+        <small class="home-foot">먹이 동물은 역할에 맞춰 더 등장해요.<br>혼자 진행하는 체험이에요. 친구들도 각자의 숲에서 놀아요.</small>
+      </div>
+    </section>
+    <section id="pausePanel" class="overlay" hidden><div class="panel pause-card"><span class="eyebrow">잠깐 쉬어 가요</span><h2>숲이 기다리고 있어요</h2><p>내 먹이와 천적을 다시 떠올려 볼까요?<br>계속하기를 누르면 시간이 다시 흘러요.</p><button id="resumeButton" class="primary wide">계속 탐험하기</button><button id="restartButton" class="secondary wide">처음으로 돌아가기</button></div></section>
+    <section id="roundPanel" class="overlay" hidden><div id="roundContent" class="panel quiz-card"></div></section>
+    <section id="summaryPanel" class="overlay" hidden><div id="summaryContent" class="panel summary-card"></div></section>
+  </main>
+</div>
+<dialog id="helpDialog"><button id="closeHelp" class="close-button" aria-label="닫기">×</button><span class="eyebrow">놀이 방법</span><h2>먹고, 피하고, 숨어요!</h2><ol><li>이동 조작판, 방향키·WASD로 움직여요. 빈 곳을 눌러 이동할 수도 있어요.</li><li>먹이에 가까이 가면 자동으로 먹어요. 제한 시간 안에 화면의 먹이 미션에 도전해요.</li><li>행동 버튼 또는 스페이스로 특수 동작을 써요. 메뚜기는 나무·바위를 훌쩍 뛰어넘어요.</li><li>메뚜기·개구리·뱀은 나무 가까이나 풀숲에서 멈추면 처음 3초 동안 잡히지 않아요. 이후에는 숨어 있어도 잡혀요. 밖에 1초 이상 있어야 다시 보호받아요.</li><li>잡혀도 2.5초 뒤 다시 출발해요. 이번 역할에서 먹은 수는 유지돼요.</li><li>한 역할이 끝나면 먹이관계 한 문제를 풀고, 다음 동물 역할로 바꾸어요.</li></ol><p class="chain">🌾 → 🦗 → 🐸 → 🐍 → 🦅</p><p class="small">화살표는 먹히는 생물에서 먹는 생물 쪽이에요.<br>교과서의 대표 먹이사슬을 단순화한 놀이예요.</p><button id="helpDone" class="primary wide">알겠어요!</button></dialog>
+<!-- GAME_CODE -->
+</body></html>
