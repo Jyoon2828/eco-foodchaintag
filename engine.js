@@ -1,5 +1,6 @@
 export const W = 1800, H = 1100;
 export const JUMP_DURATION=.75, JUMP_DISTANCE=330, JUMP_HEIGHT=96;
+export const HIDE_DURATION=3, HIDE_RESET_TIME=1;
 export const ROLES = [
   {name:'메뚜기',emoji:'🦗',color:'#749b32',food:'벼',enemy:'개구리',skill:'멀리 뛰기',speed:255,cd:4},
   {name:'개구리',emoji:'🐸',color:'#23856c',food:'메뚜기',enemy:'뱀',skill:'혀 뻗기',speed:235,cd:3},
@@ -15,6 +16,12 @@ export const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const roleFor=(base,round)=>((base+round)%4+4)%4;
 export const canEat=(predator,prey)=>predator>=1 && predator<=3 && predator===prey+1;
 export const inReeds=p=>REEDS.some(r=>dist(r,p)<r.r);
+export const inCover=p=>inReeds(p)||TREES.some(t=>dist(t,p)<t.r+65);
+export const hideProtected=p=>!!p.hidden&&(p.hideTime||0)<HIDE_DURATION;
+export function missionFor(p,duration=90){
+  const role=p?.role??0,goal=Math.max(1,Math.ceil([5,3,2,2][role]*duration/90)),count=p?.fed||0,unit=role===0?'개':'마리';
+  return {goal,count,unit,food:ROLES[role].food,complete:count>=goal,text:`${ROLES[role].food} ${goal}${unit} 이상 먹기`};
+}
 export function createWorld(duration=90,bots=2) {
   const plants=Array.from({length:24},(_,i)=>({id:i,x:180+(i%8)*205+(i%2)*30,y:170+Math.floor(i/8)*345,ready:0}));
   return {v:1,t:0,round:0,duration:clamp(duration,30,180),phase:'lobby',remaining:duration,bots:clamp(bots,0,4),players:{},plants,events:[],serial:0};
@@ -25,14 +32,14 @@ function spawn(p,world) {
   p.x=120+(i%7)*255; p.y=130+Math.floor(i/7)*265;
   if(p.bot){p.x=Math.min(W-60,p.x+100);p.y=Math.min(H-60,p.y+95);}
   if(p.role!==3){const safe=resolvePosition(p.x,p.y);p.x=safe.x;p.y=safe.y;}
-  p.angle=0;p.cool=0;p.effect=0;p.protect=3;p.respawn=0;p.hidden=false;p.eatWait=0;
+  p.angle=0;p.cool=0;p.effect=0;p.protect=3;p.respawn=0;p.hidden=false;p.hideTime=0;p.hideAway=0;p.eatWait=0;
 }
 export function addPlayer(world,id,info={},bot=false) {
   if(world.players[id]) {Object.assign(world.players[id],{online:true,group:info.group??world.players[id].group,label:info.label??world.players[id].label,skin:info.skin??world.players[id].skin??0});return world.players[id];}
   const humans=Object.values(world.players).filter(p=>!p.bot);
   const used=new Set(humans.map(p=>p.base));let base=0;while(used.has(base))base++;
   if(bot)base=info.base??0;
-  const p={id,base,role:roleFor(base,world.round),group:info.group||1,label:info.label||(bot?'숲 친구':'탐험가'),skin:info.skin??0,bot,online:true,x:100,y:100,angle:0,score:0,caught:0,cool:0,effect:0,protect:3,respawn:0,eatWait:0,hidden:false,actionSeq:0,learned:[],visited:[]};
+  const p={id,base,role:roleFor(base,world.round),group:info.group||1,label:info.label||(bot?'숲 친구':'탐험가'),skin:info.skin??0,bot,online:true,x:100,y:100,angle:0,score:0,fed:0,caught:0,cool:0,effect:0,protect:3,respawn:0,eatWait:0,hidden:false,hideTime:0,hideAway:0,actionSeq:0,learned:[],visited:[]};
   spawn(p,world);world.players[id]=p;return p;
 }
 export function syncMembers(world,members={}) {
@@ -49,20 +56,20 @@ export function startRound(world,round=0) {
   world.round=clamp(round,0,3);world.remaining=world.duration;world.phase='playing';
   ensureBots(world);
   for(const p of Object.values(world.players)){
-    p.role=roleFor(p.base,world.round);p.visited=Array.from(new Set([...p.visited,p.role]));spawn(p,world);
+    p.role=roleFor(p.base,world.round);p.fed=0;p.visited=Array.from(new Set([...p.visited,p.role]));spawn(p,world);
   }
   return world;
 }
 function event(world,e){world.events.push({...e,id:++world.serial,at:Math.round(world.t*10)/10});world.events=world.events.slice(-35);}
 function learn(p,link){if(!p.learned.includes(link))p.learned.push(link);}
 function catchPrey(world,p,q){
-  if(!canEat(p.role,q.role)||p.eatWait>0||q.protect>0||q.respawn>0||p.respawn>0)return false;
-  const link=p.role;learn(p,link);learn(q,link);p.score++;q.caught++;q.respawn=2.5;q.hidden=false;p.eatWait=1.2;
+  if(!canEat(p.role,q.role)||p.eatWait>0||q.protect>0||hideProtected(q)||q.respawn>0||p.respawn>0)return false;
+  const link=p.role;learn(p,link);learn(q,link);p.score++;p.fed=(p.fed||0)+1;q.caught++;q.respawn=2.5;q.hidden=false;p.eatWait=1.2;
   event(world,{type:'catch',from:q.role,to:p.role,hunter:p.id,prey:q.id,x:q.x,y:q.y});return true;
 }
 export function visibleTo(viewer,target){
   if(viewer?.id===target.id||!viewer)return true;
-  if(target.hidden&&dist(viewer,target)>=110)return false;
+  if(target.hidden){if(!hideProtected(target))return true;if(dist(viewer,target)>=110)return false;}
   return hasLineOfSight(viewer,target);
 }
 export function hasLineOfSight(a,b){
@@ -110,6 +117,42 @@ export function findPath(start,target,role=0){
   if(!OBSTACLES.some(o=>dist(goal,o)<o.r+25))path.push(goal);
   return path;
 }
+// Shared movement keeps local presentation and the authoritative host consistent.
+// It changes only motion/skill state; scoring and catches stay on the host.
+export function advanceMotion(p,input={},dt=.05){
+  dt=clamp(Number(dt)||0,0,.12);
+  let jumpTime=p.role===0?p.effect:0;
+  p.cool=Math.max(0,p.cool-dt);p.effect=Math.max(0,p.effect-dt);
+  let dx=clamp(Number(input.x)||0,-1,1),dy=clamp(Number(input.y)||0,-1,1);
+  const norm=Math.max(1,Math.hypot(dx,dy));dx/=norm;dy/=norm;
+  if(jumpTime<=0&&Math.hypot(dx,dy)>.03)p.angle=Math.atan2(dy,dx);
+  let skillStarted=false;
+  if(Number(input.action)>p.actionSeq){
+    p.actionSeq=Number(input.action);
+    if(p.cool===0){p.cool=ROLES[p.role].cd;p.effect=p.role===0?JUMP_DURATION:p.role===2?3:p.role===1?.3:.65;if(p.role===0)jumpTime=JUMP_DURATION;skillStarted=true;}
+  }
+  let speed=ROLES[p.role].speed;
+  if(p.effect>0){if(p.role===3)speed*=1.8;if(p.role===2)speed*=.55;}
+  // Integrate the last partial frame, including automatic forward travel in a jump.
+  const jumping=jumpTime>0,travel=jumping?JUMP_DISTANCE/JUMP_DURATION*Math.min(dt,jumpTime):speed*dt;
+  let nx=clamp(p.x+(jumping?Math.cos(p.angle):dx)*travel,42,W-42),ny=clamp(p.y+(jumping?Math.sin(p.angle):dy)*travel,45,H-45);
+  if(jumping)p.effect=jumpTime-dt>1e-8?jumpTime-dt:0;
+  const airborne=p.role===0&&p.effect>0;
+  if(p.role!==3&&!airborne){const safe=resolvePosition(nx,ny);nx=safe.x;ny=safe.y;}
+  p.x=nx;p.y=ny;
+  return {dx,dy,airborne,skillStarted};
+}
+export function advanceHiding(p,motion,dt){
+  const cover=inCover(p),skill=p.role===2&&p.effect>0;
+  p.hidden=!motion.airborne&&p.role!==3&&(cover&&Math.hypot(motion.dx,motion.dy)<.2||skill);
+  if(p.hidden){
+    const elapsed=(p.hideTime||0)+dt;
+    p.hideTime=elapsed>=HIDE_DURATION-1e-8?HIDE_DURATION:elapsed;p.hideAway=0;
+  }else if(!cover&&!skill){
+    p.hideAway=Math.min(HIDE_RESET_TIME,(p.hideAway||0)+dt);
+    if(p.hideAway>=HIDE_RESET_TIME-1e-8)p.hideTime=0;
+  }else p.hideAway=0;
+}
 export function step(world,inputs={},dt=.05){
   if(world.phase!=='playing')return;
   dt=clamp(Number(dt)||0,0,.12);world.t+=dt;world.remaining=Math.max(0,world.remaining-dt);
@@ -117,30 +160,15 @@ export function step(world,inputs={},dt=.05){
   const all=Object.values(world.players).filter(p=>p.online);
   for(const f of world.plants)f.ready=Math.max(0,f.ready-dt);
   for(const p of all){
-    let jumpTime=p.role===0?p.effect:0;
-    p.cool=Math.max(0,p.cool-dt);p.effect=Math.max(0,p.effect-dt);p.protect=Math.max(0,p.protect-dt);p.eatWait=Math.max(0,p.eatWait-dt);
+    p.protect=Math.max(0,p.protect-dt);p.eatWait=Math.max(0,p.eatWait-dt);
     if(p.respawn>0){p.respawn=Math.max(0,p.respawn-dt);if(p.respawn===0)spawn(p,world);continue;}
-    const i=p.bot?aiInput(world,p):(inputs[p.id]||{});
-    let dx=clamp(Number(i.x)||0,-1,1),dy=clamp(Number(i.y)||0,-1,1);const norm=Math.max(1,Math.hypot(dx,dy));dx/=norm;dy/=norm;
-    if(jumpTime<=0&&Math.hypot(dx,dy)>.03)p.angle=Math.atan2(dy,dx);
-    if(Number(i.action)>p.actionSeq){
-      p.actionSeq=Number(i.action);
-      if(p.cool===0){p.cool=ROLES[p.role].cd;p.effect=p.role===0?JUMP_DURATION:p.role===2?3:p.role===1?.3:.65;if(p.role===0)jumpTime=JUMP_DURATION;event(world,{type:'skill',hunter:p.id,role:p.role,x:p.x,y:p.y});}
-    }
-    let speed=ROLES[p.role].speed;
-    if(p.effect>0){if(p.role===3)speed*=1.8;if(p.role===2)speed*=.55;}
-    // A jump follows the takeoff direction even after the controls are released.
-    // Integrate the last partial frame so different step sizes travel equally far.
-    const jumping=jumpTime>0,travel=jumping?JUMP_DISTANCE/JUMP_DURATION*Math.min(dt,jumpTime):speed*dt;
-    let nx=clamp(p.x+(jumping?Math.cos(p.angle):dx)*travel,42,W-42),ny=clamp(p.y+(jumping?Math.sin(p.angle):dy)*travel,45,H-45);
-    if(jumping)p.effect=jumpTime-dt>1e-8?jumpTime-dt:0;
-    const airborne=p.role===0&&p.effect>0;
-    // Fly over trunks and rocks; resolve collisions only when landing.
-    if(p.role!==3&&!airborne){const safe=resolvePosition(nx,ny);nx=safe.x;ny=safe.y;}
-    p.x=nx;p.y=ny;p.hidden=!airborne&&p.role!==3&&(inReeds(p)&&Math.hypot(dx,dy)<.2||p.role===2&&p.effect>0);
-    if(p.role===0&&!airborne&&p.eatWait===0){
+    const input=p.bot?aiInput(world,p):(inputs[p.id]||{}),takeoff={x:p.x,y:p.y};
+    const motion=advanceMotion(p,input,dt);
+    if(motion.skillStarted)event(world,{type:'skill',hunter:p.id,role:p.role,...takeoff});
+    advanceHiding(p,motion,dt);
+    if(p.role===0&&!motion.airborne&&p.eatWait===0){
       const f=world.plants.find(q=>q.ready<=0&&dist(p,q)<47);
-      if(f){f.ready=7;p.score++;p.eatWait=.65;learn(p,0);event(world,{type:'rice',hunter:p.id,from:-1,to:0,x:f.x,y:f.y});}
+      if(f){f.ready=7;p.score++;p.fed=(p.fed||0)+1;p.eatWait=.65;learn(p,0);event(world,{type:'rice',hunter:p.id,from:-1,to:0,x:f.x,y:f.y});}
     }
   }
   // One authoritative host resolves collisions once. A prey cannot be caught twice.
@@ -148,7 +176,7 @@ export function step(world,inputs={},dt=.05){
     if(p.role===0||p.respawn>0||p.eatWait>0)continue;
     const reach=p.role===1&&p.effect>0?145:52;
     for(const q of all){
-      if(q.id===p.id||!canEat(p.role,q.role)||q.protect>0||q.respawn>0||!visibleTo(p,q)||q.role===0&&q.effect>0)continue;
+      if(q.id===p.id||!canEat(p.role,q.role)||q.protect>0||hideProtected(q)||q.respawn>0||!visibleTo(p,q)||q.role===0&&q.effect>0)continue;
       const d=dist(p,q),angle=Math.atan2(q.y-p.y,q.x-p.x),dot=Math.cos(angle-p.angle);
       if(d<reach&&(d<52||dot>.45)){if(catchPrey(world,p,q))break;}
     }
@@ -160,20 +188,20 @@ export function snapshot(world){
 const PLAYER_FIELDS=['base','role','group','label','bot','online','x','y','angle','score','caught','cool','effect','protect','respawn','eatWait','hidden','actionSeq'];
 export function packWorld(world){
   const packet={...world,v:2,players:{}};
-  for(const [id,p]of Object.entries(world.players))packet.players[id]=[...PLAYER_FIELDS.map(k=>typeof p[k]==='number'?Math.round(p[k]*10)/10:p[k]),(p.learned||[]).join(','),(p.visited||[]).join(','),p.skin??0];
+  for(const [id,p]of Object.entries(world.players))packet.players[id]=[...PLAYER_FIELDS.map(k=>typeof p[k]==='number'?Math.round(p[k]*10)/10:p[k]),(p.learned||[]).join(','),(p.visited||[]).join(','),p.skin??0,p.hideTime||0,p.hideAway||0,p.fed||0];
   return snapshot(packet);
 }
 export function unpackWorld(packet){
   const world={...packet,players:{},events:packet.events||[],plants:packet.plants||[]};
   for(const [id,p]of Object.entries(packet.players||{})){
-    if(packet.v===2){const row={id};PLAYER_FIELDS.forEach((k,i)=>row[k]=p[i]);row.learned=p[18]?p[18].split(',').map(Number):[];row.visited=p[19]?p[19].split(',').map(Number):[];row.skin=p[20]??0;world.players[id]=row;}
-    else world.players[id]={...p,id,learned:p.learned||[],visited:p.visited||[]};
+    if(packet.v===2){const row={id};PLAYER_FIELDS.forEach((k,i)=>row[k]=p[i]);row.learned=p[18]?p[18].split(',').map(Number):[];row.visited=p[19]?p[19].split(',').map(Number):[];row.skin=p[20]??0;row.hideTime=p[21]||0;row.hideAway=p[22]||0;row.fed=p[23]||0;world.players[id]=row;}
+    else world.players[id]={...p,id,learned:p.learned||[],visited:p.visited||[],hideTime:p.hideTime||0,hideAway:p.hideAway||0,fed:p.fed||0};
   }
   world.v=1;return world;
 }
 export function groupSummary(world){
   return Array.from({length:6},(_,i)=>{
     const players=Object.values(world.players).filter(p=>!p.bot&&p.group===i+1);
-    return {group:i+1,players:players.length,score:players.reduce((s,p)=>s+p.score,0),links:Array.from(new Set(players.flatMap(p=>p.learned))).sort()};
+    return {group:i+1,players:players.length,score:players.reduce((s,p)=>s+p.score,0),missions:players.filter(p=>missionFor(p,world.duration).complete).length,links:Array.from(new Set(players.flatMap(p=>p.learned))).sort()};
   });
 }

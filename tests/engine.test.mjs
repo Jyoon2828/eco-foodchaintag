@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {W,H,createWorld,addPlayer,canEat,startRound,step,syncMembers,groupSummary,packWorld,unpackWorld} from '../engine.js';
-function arena(roles){const w=createWorld(30,0);roles.forEach((r,i)=>{const p=addPlayer(w,`p${i}`,{group:i%6+1});p.base=r;});startRound(w);for(const p of Object.values(w.players)){p.x=700;p.y=600;p.protect=0;}return w;}
+function arena(roles){const w=createWorld(30,0);roles.forEach((r,i)=>{const p=addPlayer(w,`p${i}`,{group:i%6+1});p.base=r;});startRound(w);for(const p of Object.values(w.players)){p.x=700;p.y=450;p.protect=0;}return w;}
 test('only the three adjacent animal feeding links are catchable',()=>{for(let a=0;a<4;a++)for(let b=0;b<4;b++)assert.equal(canEat(a,b),a===b+1&&a>0);});
 test('25 learners start spread out and each experiences four different roles',()=>{const w=createWorld(30,0);for(let i=0;i<25;i++)addPlayer(w,`p${i}`,{group:i%6+1});startRound(w,0);assert.equal(new Set(Object.values(w.players).map(p=>`${p.x},${p.y}`)).size,25);for(let r=0;r<4;r++)startRound(w,r);for(const p of Object.values(w.players))assert.equal(new Set(p.visited).size,4);});
 test('computer animals start separately from all 25 learners',()=>{const w=createWorld(30,2);for(let i=0;i<25;i++)addPlayer(w,`p${i}`,{group:i%6+1});startRound(w);const p=Object.values(w.players);assert.equal(p.length,33);assert.equal(new Set(p.map(q=>`${q.x},${q.y}`)).size,33);});

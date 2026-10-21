@@ -18,8 +18,8 @@ test('realtime packet preserves all players, plants, teaching records and three 
   assert.equal(Object.keys(copy.players).length,39);assert.deepEqual(copy.events,world.events);
   for(const [id,p]of Object.entries(world.players)){
     const q=copy.players[id];
-    for(const key of ['id','base','role','group','label','bot','online','skin','score','caught','hidden','actionSeq'])assert.equal(q[key],p[key],key);
-    for(const key of ['x','y','angle','cool','effect','protect','respawn','eatWait'])assert.ok(Math.abs(q[key]-p[key])<=.051,key);
+    for(const key of ['id','base','role','group','label','bot','online','skin','score','caught','hidden','actionSeq','fed'])assert.equal(q[key],p[key],key);
+    for(const key of ['x','y','angle','cool','effect','protect','respawn','eatWait','hideTime','hideAway'])assert.ok(Math.abs(q[key]-p[key])<=.051,key);
     assert.deepEqual(q.learned,p.learned);assert.deepEqual(q.visited,p.visited);
   }
   assert.equal(copy.phase,world.phase);assert.equal(copy.round,world.round);

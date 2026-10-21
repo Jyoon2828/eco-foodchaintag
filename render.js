@@ -1,6 +1,7 @@
-import {W,H,JUMP_DURATION,JUMP_HEIGHT,ROLES,REEDS,ROCKS,TREES,visibleTo,canEat,dist} from './engine.js';
+import {W,H,JUMP_DURATION,JUMP_HEIGHT,ROLES,REEDS,ROCKS,TREES,hideProtected,visibleTo,canEat,dist} from './engine.js';
 import {MAP_MARGIN,MAP_WIDTH,MAP_HEIGHT,project,unproject,facingFrame} from './projection.js';
 import {ASSET_FRAMES} from './asset-frames.js';
+import {MotionView} from './motion-view.js';
 const animals=new Image();animals.src='./assets/animals-pixel.png';
 const props=new Image();props.src='./assets/forest-props-pixel.png';
 const box=(c,x,y,w,h,r=12)=>{c.beginPath();c.roundRect(x,y,w,h,r);};
@@ -14,7 +15,7 @@ function sprite(c,img,cell,x,y,size){
 }
 export class Renderer{
   constructor(canvas,onMove){
-    this.canvas=canvas;this.c=canvas.getContext('2d');this.positions={};this.camera={x:MAP_WIDTH/2,y:MAP_HEIGHT/2};this.last=performance.now();
+    this.canvas=canvas;this.c=canvas.getContext('2d');this.positions={};this.motion=new MotionView();this.camera={x:MAP_WIDTH/2,y:MAP_HEIGHT/2};this.last=performance.now();
     this.terrain=document.createElement('canvas');this.terrain.width=MAP_WIDTH/4;this.terrain.height=MAP_HEIGHT/4;this.paintTerrain();
     this.resize=new ResizeObserver(()=>this.fit());this.resize.observe(canvas);this.fit();
     canvas.addEventListener('pointerdown',e=>{const r=canvas.getBoundingClientRect();if(!this.scale)return;const p=unproject(this.left+(e.clientX-r.left)/this.scale,this.top+(e.clientY-r.top)/this.scale);if(p.x>=0&&p.x<=W&&p.y>=0&&p.y<=H)onMove?.(p.x,p.y);});
@@ -43,37 +44,37 @@ export class Renderer{
     if(!sprite(c,props,type,v.x,v.y,size)){c.fillStyle=['#5b994e','#9d9a9d','#74a64b','#d1bc58'][type];box(c,v.x-size*.3,v.y-size*.6,size*.6,size*.6,20);c.fill();}c.restore();
   }
   pawn(c,p,pos,me,now){
-    const v=project(pos.x,pos.y),moving=pos.moving>.7,role=p.role,phase=pos.walk,size=role===3?65:58;
-    let lift=role===3?22+Math.sin(now/210+p.base)*3:moving?Math.abs(Math.sin(phase))*(role===0||role===1?7:2):0;
+    const v=project(pos.x,pos.y),moving=pos.moving>12,role=p.role,phase=pos.walk,size=role===3?65:58;
+    let lift=role===3?22+Math.sin(now/210+p.base)*3:moving?Math.abs(Math.sin(phase))*(role===0||role===1?4:1.5):0;
     const jumpLift=role===0&&p.effect>0?Math.sin(Math.max(0,Math.min(1,1-pos.jump/JUMP_DURATION))*Math.PI)*JUMP_HEIGHT:0;
     if(jumpLift>0)lift=jumpLift;if(p.effect>0&&role===3)lift*=.3;
-    c.save();if(p.hidden)c.globalAlpha=.43;
+    c.save();if(p.hidden)c.globalAlpha=hideProtected(p)?.43:.8;
     const shadowScale=1-jumpLift/JUMP_HEIGHT*.4;
     c.fillStyle='#31563935';c.beginPath();c.ellipse(v.x,v.y,19*shadowScale,7*shadowScale,0,0,7);c.fill();
     if(p.id===me?.id){c.strokeStyle='#fffef1';c.lineWidth=3;c.beginPath();c.ellipse(v.x,v.y,25,10,0,0,7);c.stroke();}
     if(p.protect>0){c.strokeStyle='#fff5ab';c.lineWidth=3;c.setLineDash([5,4]);c.beginPath();c.ellipse(v.x,v.y-20,32,40,0,0,7);c.stroke();c.setLineDash([]);}
+    if(hideProtected(p)){c.strokeStyle='#9de3d0';c.lineWidth=3;c.beginPath();c.ellipse(v.x,v.y-20,31,38,0,0,7);c.stroke();}
     if(p.effect>0&&role===1){const end=project(pos.x+Math.cos(p.angle)*130,pos.y+Math.sin(p.angle)*130,15);c.strokeStyle='#ef93a1';c.lineWidth=5;c.lineCap='round';c.beginPath();c.moveTo(v.x,v.y-18);c.lineTo(end.x,end.y);c.stroke();}
-    c.save();c.translate(Math.round(v.x),Math.round(v.y-lift));c.filter=p.skin===1?'brightness(1.08) saturate(1.13) hue-rotate(-10deg)':p.skin===2?'brightness(.96) hue-rotate(15deg)':'none';
+    c.save();c.translate(v.x,v.y-lift);c.filter=p.skin===1?'brightness(1.08) saturate(1.13) hue-rotate(-10deg)':p.skin===2?'brightness(.96) hue-rotate(15deg)':'none';
     if(!sprite(c,animals,role*4+facingFrame(p.angle),0,0,size)){c.font='36px sans-serif';c.textAlign='center';c.fillText(ROLES[role].emoji,0,-6);}c.restore();
     const fs=Math.max(13,11/this.scale),label=p.bot?'숲 친구':p.label;c.font=`${p.id===me?.id?'bold ':''}${fs}px "Noto Sans KR",sans-serif`;c.textAlign='center';const tw=c.measureText(label).width;
     c.fillStyle=p.id===me?.id?'#326c52':'#fffef1f0';box(c,v.x-tw/2-6,v.y+9,tw+12,fs+7,6);c.fill();c.fillStyle=p.id===me?.id?'#fffef1':'#3b6346';c.fillText(label,v.x,v.y+fs+10);
-    if(p.id===me?.id){c.font='bold 13px "Noto Sans KR",sans-serif';c.fillStyle='#24523c';c.fillText(p.hidden?'숨는 중':`나 · ${ROLES[role].name}`,v.x,v.y-size-lift-9);}c.restore();
+    if(p.id===me?.id){c.font='bold 13px "Noto Sans KR",sans-serif';c.fillStyle='#24523c';c.fillText(p.hidden?(hideProtected(p)?'숨기 보호 중':'숨기 보호 끝'):`나 · ${ROLES[role].name}`,v.x,v.y-size-lift-9);}c.restore();
   }
-  draw(world,myId,teacher=false){
+  draw(world,myId,teacher=false,options={}){
     if(!world)return;const c=this.c,now=performance.now(),dt=Math.min((now-this.last)/1000,.1);this.last=now;
-    const width=this.canvas.width/this.dpr,height=this.canvas.height/this.dpr,me=world.players[myId];
+    const width=this.canvas.width/this.dpr,height=this.canvas.height/this.dpr;
+    this.positions=this.motion.frame(world,myId,now,dt,options);
+    const me=this.positions[myId]||world.players[myId];
     this.scale=teacher?Math.min(width/MAP_WIDTH,height/MAP_HEIGHT):Math.max(width/1180,height/790);
     const vw=width/this.scale,vh=height/this.scale,goal=me?project(me.x,me.y):{x:MAP_WIDTH/2,y:MAP_HEIGHT/2};
-    if(teacher)this.camera={x:MAP_WIDTH/2,y:MAP_HEIGHT/2};else{this.camera.x+=(goal.x-this.camera.x)*Math.min(1,dt*10);this.camera.y+=(goal.y-this.camera.y)*Math.min(1,dt*10);}
+    if(teacher)this.camera={x:MAP_WIDTH/2,y:MAP_HEIGHT/2};else{this.camera.x+=(goal.x-this.camera.x)*(1-Math.exp(-dt*12));this.camera.y+=(goal.y-this.camera.y)*(1-Math.exp(-dt*12));}
     this.left=teacher?(MAP_WIDTH-vw)/2:Math.max(0,Math.min(MAP_WIDTH-vw,this.camera.x-vw/2));this.top=teacher?(MAP_HEIGHT-vh)/2:Math.max(0,Math.min(MAP_HEIGHT-vh,this.camera.y-vh/2-20));
     c.setTransform(this.dpr,0,0,this.dpr,0,0);c.fillStyle='#91bd70';c.fillRect(0,0,width,height);c.scale(this.scale,this.scale);c.translate(-this.left,-this.top);c.drawImage(this.terrain,0,0,MAP_WIDTH,MAP_HEIGHT);
     const objects=[];for(const p of [...DECOR,...TREES])objects.push({depth:p.y,kind:'tree',p});for(const p of ROCKS)objects.push({depth:p.y,kind:'rock',p});
     for(const r of REEDS)for(let i=0;i<7;i++){const a=i*Math.PI*2/6,rad=i===6?0:66,p={x:r.x+Math.cos(a)*rad,y:r.y+Math.sin(a)*rad*.65};objects.push({depth:p.y,kind:'reed',p});}
     for(const p of world.plants)objects.push({depth:p.y,kind:'rice',p});const all=Object.values(world.players).filter(p=>p.online);
-    for(const p of all){if(p.respawn>0||!teacher&&me&&!visibleTo(me,p))continue;const prev=this.positions[p.id]||(this.positions[p.id]={x:p.x,y:p.y,walk:0,moving:0});const moved=dist(prev,p);if(moved>300){prev.x=p.x;prev.y=p.y;}else{prev.x+=(p.x-prev.x)*Math.min(1,dt*15);prev.y+=(p.y-prev.y)*Math.min(1,dt*15);}prev.moving=moved;prev.walk+=moved*.03;
-      // Count down locally between the existing four network updates per second.
-      prev.jump=p.role===0&&p.effect>0?(prev.jumpSeq===p.actionSeq?Math.min(p.effect,Math.max(0,prev.jump-(world.phase==='playing'?dt:0))):p.effect):0;prev.jumpSeq=p.actionSeq;
-      objects.push({depth:p.y+(p.role===3||p.role===0&&p.effect>0?10000:0),kind:'pawn',p,pos:prev});}objects.sort((a,b)=>a.depth-b.depth);
+    for(const source of all){const p=this.positions[source.id]||source;if(p.respawn>0||!teacher&&me&&!visibleTo(me,p))continue;const revealed=p.hidden&&!hideProtected(p);objects.push({depth:p.y+(p.role===3||p.role===0&&p.effect>0||revealed?10000:0),kind:'pawn',p,pos:p});}objects.sort((a,b)=>a.depth-b.depth);
     for(const o of objects){const v=project(o.p.x,o.p.y);if(v.x<this.left-170||v.x>this.left+vw+170||v.y<this.top-170||v.y>this.top+vh+170)continue;
       if(o.kind==='pawn')this.pawn(c,o.p,o.pos,me,now);
       if(o.kind==='tree'){const fade=me&&!teacher&&Math.abs(me.x-o.p.x)<70&&me.y<o.p.y+12&&me.y>o.p.y-125;this.prop(c,0,o.p,TREES.includes(o.p)?145:140,fade?.35:1);}

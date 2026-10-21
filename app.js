@@ -1,4 +1,4 @@
-import {createWorld,addPlayer,syncMembers,startRound,step,ROLES,groupSummary,dist,findPath} from './engine.js';
+import {createWorld,addPlayer,syncMembers,startRound,step,ROLES,groupSummary,dist,findPath,missionFor,hideProtected,HIDE_DURATION} from './engine.js';
 import {unpackRealtimeWorld,WORLD_INTERVAL_MS,INPUT_MAX_AGE_MS,HOST_HEARTBEAT_MS,HOST_TIMEOUT_MS} from './sync.js';
 import {screenVectorToWorld} from './projection.js';
 import {Renderer} from './render.js';
@@ -65,7 +65,7 @@ async function newLesson(ask=true){
 }
 function demoMembers(){for(let i=0;i<25;i++){const id=`pupil_${i}`;S.members[id]={group:Math.floor(i/4)+1>6?6:Math.floor(i/4)+1,seat:i<24?i%4+1:5,online:true,epoch:S.epoch,joinedAt:i};}syncMembers(S.world,S.members);}
 function practice(teacher=false){
-  S.teacher=teacher;S.demo=true;S.host=true;S.entered=true;S.group=1;S.me=teacher?null:'practice_me';S.quizDone={};S.epoch='practice';S.meta={hostOnline:true};S.world=createWorld(60,2);S.boards={};S.members={};S.inputs={};
+  S.teacher=teacher;S.demo=true;S.host=true;S.entered=true;S.group=1;S.me=teacher?null:'practice_me';S.quizDone={};S.epoch='practice';S.meta={hostOnline:true};S.world=createWorld(90,2);S.boards={};S.members={};S.inputs={};
   if(teacher)demoMembers();else addPlayer(S.world,S.me,{group:1,label:'나',skin:S.skin});
   gameView();$('connection').textContent='이 기기에서 연습';if(!teacher)$('helpDialog').showModal();
 }
@@ -95,10 +95,10 @@ function moveInput(){
   let x=S.joystick.x,y=S.joystick.y;const k=S.keys;
   if(k.has('ArrowLeft')||k.has('a'))x--;if(k.has('ArrowRight')||k.has('d'))x++;if(k.has('ArrowUp')||k.has('w'))y--;if(k.has('ArrowDown')||k.has('s'))y++;
   if(Math.hypot(x,y)>.05){S.target=null;S.route=[];const v=screenVectorToWorld(x,y);x=v.x;y=v.y;}
-  else if(S.target&&S.world?.players[S.me]){const p=S.world.players[S.me],d=dist(p,S.target);if(d>18){x=(S.target.x-p.x)/d;y=(S.target.y-p.y)/d;}else S.target=S.route.shift()||null;}
+  else if(S.target&&S.world?.players[S.me]){const p=renderer.positions[S.me]||S.world.players[S.me],d=dist(p,S.target);if(d>18){x=(S.target.x-p.x)/d;y=(S.target.y-p.y)/d;}else S.target=S.route.shift()||null;}
   const n=Math.max(1,Math.hypot(x,y));return {x:x/n,y:y/n,action:S.action};
 }
-function action(){if(S.world?.phase==='playing'){S.action++;if(navigator.vibrate)navigator.vibrate(18);}}
+function action(){if(S.world?.phase==='playing'){if(S.world.players[S.me]?.role===0){S.target=null;S.route=[];}S.action++;if(navigator.vibrate)navigator.vibrate(18);}}
 $('actionBtn').onpointerdown=e=>{e.preventDefault();action();};
 const joy=$('joystick');let pointer=null;
 function joyMove(e){const r=joy.getBoundingClientRect(),dx=e.clientX-r.left-r.width/2,dy=e.clientY-r.top-r.height/2,max=r.width*.3,n=Math.max(max,Math.hypot(dx,dy));S.joystick={x:dx/n,y:dy/n};$('stick').style.transform=`translate(${S.joystick.x*max}px,${S.joystick.y*max}px)`;S.target=null;S.route=[];}
@@ -130,13 +130,15 @@ function updateUI(){
   const w=S.world;if(!w)return;const me=w.players[S.me],role=me?.role??0;
   const seconds=Math.ceil(w.remaining);$('roundText').textContent=w.phase==='lobby'?'탐험 준비':`${w.round+1} / 4 라운드`;$('timer').textContent=`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;
   if(me){$('rolePortrait').className=`animal portrait a${role}`;$('myLabel').textContent=S.demo?'혼자 연습':me.label;$('myRole').textContent=ROLES[role].name;$('foodHint').textContent=`먹이: ${ROLES[role].food} · 천적: ${ROLES[role].enemy}`;$('myScore').textContent=me.score;$('actionText').textContent=ROLES[role].skill;$('actionIcon').textContent=['↗','⌁','♧','↓'][role];$('cooldownText').textContent=me.cool>0?`${me.cool.toFixed(1)}초 뒤`:'준비 완료';$('actionBtn').style.opacity=me.cool>0?'.6':'1';
+    const mission=missionFor(me,w.duration);$('missionText').textContent=mission.text;$('missionCount').textContent=`${mission.count} / ${mission.goal}`;$('missionProgress').max=mission.goal;$('missionProgress').value=Math.min(mission.count,mission.goal);$('missionHud').classList.toggle('complete',mission.complete);$('missionTitle').textContent=mission.complete?'✓ 이번 역할 미션 성공!':'이번 역할 먹이 미션';
+    $('hideStatus').textContent=role===3?'매는 날아서 나무·바위를 통과해요':me.hidden?(hideProtected(me)?`🛡 숨기 보호 ${(HIDE_DURATION-(me.hideTime||0)).toFixed(1)}초`:'보호가 끝났어요! 숨어 있어도 잡힐 수 있어요.'):'나무·풀숲에서 멈추면 3초 동안 보호돼요';$('hideStatus').classList.toggle('exposed',me.hidden&&!hideProtected(me));
     $('respawnNotice').classList.toggle('hidden',me.respawn<=0||w.phase!=='playing');if(me.respawn>0)$('respawnNotice').innerHTML=`${ROLES[role].emoji} 다시 출발해요!<br><small>${Math.ceil(me.respawn)}초</small>`;
   }
   const stale=!S.demo&&!S.teacher&&(!S.net?.connected||!S.meta.hostOnline||S.net.now()-(S.meta.hostBeat||0)>HOST_TIMEOUT_MS||w.phase==='playing'&&Date.now()-S.hostReceived>5000);$('hostWarning').classList.toggle('hidden',!stale);
   if(S.teacher){
-    const online=Object.values(S.members).filter(m=>m.online&&m.epoch===S.epoch).length;$('memberCount').textContent=`${online}명 접속`;
+    const online=Object.values(S.members).filter(m=>m.online&&m.epoch===S.epoch).length;$('memberCount').textContent=`${online}명 접속`;$('botHint').textContent=`숲 친구 ${Object.values(w.players).filter(p=>p.bot&&p.online).length}마리 · 시작 시 종류마다 ${w.bots}마리 자동 추가`;
     $('startBtn').textContent=w.phase==='paused'?'놀이 계속하기':w.phase==='between'?'다음 라운드 시작':'첫 라운드 시작';$('startBtn').disabled=w.phase==='playing'||w.phase==='reflection'||w.round===3&&w.phase==='between';$('pauseBtn').textContent=w.phase==='paused'?'계속하기':'잠깐 멈춤';$('nextBtn').textContent=w.round<3?'다음 역할':'정리 활동';
-    if(Date.now()-S.lastUI>900){S.lastUI=Date.now();$('teacherGroups').innerHTML=groupSummary(w).map(g=>{const board=S.boards[g.group];return `<button class="group-chip" data-group="${g.group}"><b>${g.group}모둠 · ${g.players}명</b><span>${g.score}번 먹이 경험</span><div class="link-dots">${[0,1,2,3].map(i=>g.links.includes(i)?'●':'○').join('')}</div><span>${board?.submitted?'✓ 결과 제출':'토의 준비'}</span></button>`;}).join('');}
+    if(Date.now()-S.lastUI>900){S.lastUI=Date.now();$('teacherGroups').innerHTML=groupSummary(w).map(g=>{const board=S.boards[g.group];return `<button class="group-chip" data-group="${g.group}"><b>${g.group}모둠 · ${g.players}명</b><span>${g.score}번 먹이 경험</span><span>이번 미션 ${g.missions}/${g.players}명 성공</span><div class="link-dots">${[0,1,2,3].map(i=>g.links.includes(i)?'●':'○').join('')}</div><span>${board?.submitted?'✓ 결과 제출':'토의 준비'}</span></button>`;}).join('');}
   }
   const key=[w.phase,w.round,role,S.teacher,!!me].join(':');
   if(S.overlayKey!==key){S.target=null;S.route=[];S.overlayKey=key;overlay(w,me);}
@@ -145,12 +147,12 @@ function updateUI(){
 }
 function overlay(w,me){
   const wrap=$('centerOverlay'),card=$('overlayContent');wrap.classList.toggle('hidden',w.phase==='playing');if(w.phase==='playing')return;
-  const role=me?.role??0,next=(role+1)%4;
-  if(w.phase==='lobby')card.innerHTML=`<div class="eyebrow">탐험 준비 완료</div>${!S.teacher?`<span class="animal a${role}"></span>`:''}<h2>${S.teacher?'우리 반 친구들을 기다려요':me?`첫 역할은 ${ROLES[role].name}!`:'숲에 들어가는 중이에요'}</h2><p>${S.teacher?'학생 공통 링크를 공유하고<br>모두 들어오면 첫 라운드를 시작하세요.':`먹이: ${ROLES[role].food} · 천적: ${ROLES[role].enemy}<br>선생님이 시작하면 함께 움직여요.`}</p>${S.demo&&!S.teacher?'<button id="practiceStart" class="primary">연습 시작하기</button>':''}`;
+  const role=me?.role??0,next=(role+1)%4,mission=missionFor(me,w.duration),missionResult=me?`<div class="mission-result ${mission.complete?'complete':''}"><b>${mission.complete?'✓ 먹이 미션 성공!':'이번 먹이 미션 기록'}</b><span>${esc(mission.food)} ${mission.count}${mission.unit} / 목표 ${mission.goal}${mission.unit}</span></div>`:'';
+  if(w.phase==='lobby')card.innerHTML=`<div class="eyebrow">탐험 준비 완료</div>${!S.teacher?`<span class="animal a${role}"></span>`:''}<h2>${S.teacher?'우리 반 친구들을 기다려요':me?`첫 역할은 ${ROLES[role].name}!`:'숲에 들어가는 중이에요'}</h2><p>${S.teacher?'학생 공통 링크를 공유하고<br>모두 들어오면 첫 라운드를 시작하세요.':`먹이: ${ROLES[role].food} · 천적: ${ROLES[role].enemy}<br><b>미션: ${mission.text}</b><br>선생님이 시작하면 함께 움직여요.`}</p>${S.demo&&!S.teacher?'<button id="practiceStart" class="primary">연습 시작하기</button>':''}`;
   if(w.phase==='paused')card.innerHTML='<div class="eyebrow">잠깐 멈춤</div><h2>이야기를 나누어요</h2><p>내가 먹은 생물과 나를 먹는 생물은 누구였나요?<br>선생님이 계속하기를 누르면 다시 움직여요.</p>';
   if(w.phase==='between'){
     const quiz=quizForRole(role),done=!!S.quizDone[`${S.epoch}:${w.round}`];
-    card.innerHTML=`<div class="eyebrow">${w.round+1}라운드 탐험 완료</div><h2>${S.teacher?'먹이관계를 확인해요':'숲속 한 문제!'}</h2>${S.teacher?'<p>학생들이 방금 맡은 생물의 먹이관계를 확인하고 있어요.<br>답을 함께 이야기한 뒤 다음 라운드를 시작하세요.</p>':`<div class="round-quiz"><h3>${esc(quiz.question)}</h3><div id="quizChoices" class="quiz-choices">${quiz.choices.map((text,i)=>`<button type="button" data-answer="${i}" class="secondary" ${done?'disabled':''}>${esc(text)}</button>`).join('')}</div><p id="quizFeedback" aria-live="polite">${done?'✓ '+esc(quiz.explanation):'경험한 먹이관계를 떠올려 보세요.'}</p></div>`}<p>${w.round<3?`${!S.teacher?`다음에는 <b>${ROLES[next].name} 역할</b>로 바꾸어요.<br>`:''}선생님이 다음 라운드를 열면 출발해요.`:'모둠원과 탐험 기록을 모아 먹이사슬을 연결해 보세요.'}</p>${S.demo&&!S.teacher?`<button id="practiceNext" class="primary" ${done?'':'disabled'}>${w.round<3?'다음 역할로 탐험하기':'먹이사슬 연결하기'}</button>`:''}<small class="role-note">역할을 바꾸는 놀이예요. 생물이 다른 종류로 변하는 것은 아니에요.</small>`;
+    card.innerHTML=`<div class="eyebrow">${w.round+1}라운드 탐험 완료</div><h2>${S.teacher?'먹이관계를 확인해요':'숲속 한 문제!'}</h2>${missionResult}${S.teacher?'<p>학생들이 방금 맡은 생물의 먹이관계를 확인하고 있어요.<br>답을 함께 이야기한 뒤 다음 라운드를 시작하세요.</p>':`<div class="round-quiz"><h3>${esc(quiz.question)}</h3><div id="quizChoices" class="quiz-choices">${quiz.choices.map((text,i)=>`<button type="button" data-answer="${i}" class="secondary" ${done?'disabled':''}>${esc(text)}</button>`).join('')}</div><p id="quizFeedback" aria-live="polite">${done?'✓ '+esc(quiz.explanation):'경험한 먹이관계를 떠올려 보세요.'}</p></div>`}<p>${w.round<3?`${!S.teacher?`다음에는 <b>${ROLES[next].name} 역할</b>로 바꾸어요.<br>`:''}선생님이 다음 라운드를 열면 출발해요.`:'모둠원과 탐험 기록을 모아 먹이사슬을 연결해 보세요.'}</p>${S.demo&&!S.teacher?`<button id="practiceNext" class="primary" ${done?'':'disabled'}>${w.round<3?'다음 역할로 탐험하기':'먹이사슬 연결하기'}</button>`:''}<small class="role-note">역할을 바꾸는 놀이예요. 생물이 다른 종류로 변하는 것은 아니에요.</small>`;
     if($('quizChoices'))$('quizChoices').onclick=e=>{
       const b=e.target.closest('[data-answer]');if(!b||S.world.phase!=='between')return;
       if(isCorrect(role,+b.dataset.answer)){S.quizDone[`${S.epoch}:${w.round}`]=true;overlay(w,me);}
@@ -161,7 +163,8 @@ function overlay(w,me){
   if($('practiceStart'))$('practiceStart').onclick=()=>{startRound(w,0);S.overlayKey='';};
   if($('practiceNext'))$('practiceNext').onclick=()=>{if(w.round<3)startRound(w,w.round+1);else{w.phase='reflection';openReflection();}S.overlayKey='';};
 }
-function frame(){if(S.world&&!$('game').classList.contains('hidden')){renderer.draw(S.world,S.me,S.teacher);if(S.entered)updateUI();}requestAnimationFrame(frame);}requestAnimationFrame(frame);
+let lastUIFrame=0;
+function frame(now){if(S.world&&!document.hidden&&!$('game').classList.contains('hidden')){const predict=!S.teacher&&(S.host||S.net?.connected&&Date.now()-S.hostReceived<4000);renderer.draw(S.world,S.me,S.teacher,{input:predict?moveInput():{},predict,interval:S.host?.05:.25});if(S.entered&&now-lastUIFrame>=100){lastUIFrame=now;updateUI();}}requestAnimationFrame(frame);}requestAnimationFrame(frame);
 const names={rice:'벼','0':'메뚜기','1':'개구리','2':'뱀','3':'매'};
 function item(k){return k==='rice'?'<span class="rice">🌾</span>':`<span class="animal a${k}"></span>`;}
 function board(){return S.boards[S.group]||{chain:'',reason:'',submitted:false,epoch:S.epoch};}
@@ -183,6 +186,6 @@ $('reason').oninput=()=>{clearTimeout(S.boardTimer);const value=$('reason').valu
 $('checkChain').onclick=()=>{$('chainFeedback').textContent=chain().join(',')==='rice,0,1,2,3'?'잘 연결했어요! 먹히는 생물에서 먹는 생물 쪽으로 이어졌어요.':'먹히는 생물부터 놓았나요? 화살표 방향과 먹이관계를 다시 이야기해 보세요.';};
 $('submitChain').onclick=run(async()=>{clearTimeout(S.boardTimer);if(chain().join(',')!=='rice,0,1,2,3')return notice('먹이사슬의 연결을 먼저 확인해 주세요.');if(!$('reason').value.trim())return notice('개구리의 먹이와 천적을 이야기하고 적어 주세요.');await saveBoard({reason:$('reason').value.trim(),submitted:true});notice('모둠 결과를 제출했어요.');});
 $('backToForest').onclick=e=>{e.preventDefault();gameView();};
-$('teacherGroups').onclick=e=>{const b=e.target.closest('[data-group]');if(!b)return;const group=+b.dataset.group,g=groupSummary(S.world).find(g=>g.group===group),r=S.boards[group];const d=document.createElement('dialog');d.innerHTML=`<div class="eyebrow">GROUP ${group}</div><h2>${group}모둠의 탐험 기록</h2><p>${g.players}명 · 먹이 경험 ${g.score}번</p><div class="help-chain" style="font-size:22px">${r?.chain?r.chain.split(',').map(k=>esc(names[k])).join(' → '):'먹이사슬을 연결하고 있어요'}</div><p style="white-space:pre-wrap">${esc(r?.reason||'모둠 설명을 기다리고 있어요.')}</p><p class="small muted">${r?.submitted?'✓ 모둠 결과 제출 완료':'아직 제출 전이에요'}</p><button class="primary wide">확인</button>`;document.body.append(d);d.querySelector('button').onclick=()=>d.close();d.onclose=()=>d.remove();d.showModal();};
-$('exportBtn').onclick=()=>{const data={title:'먹이사슬 술래잡기 수업 결과',date:new Date().toISOString(),groups:groupSummary(S.world),boards:S.boards,records:Object.values(S.world.players).filter(p=>!p.bot).map(p=>({label:p.label,group:p.group,visited:p.visited,links:p.learned,score:p.score}))};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='먹이사슬_수업결과.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('teacherGroups').onclick=e=>{const b=e.target.closest('[data-group]');if(!b)return;const group=+b.dataset.group,g=groupSummary(S.world).find(g=>g.group===group),r=S.boards[group];const d=document.createElement('dialog');d.innerHTML=`<div class="eyebrow">GROUP ${group}</div><h2>${group}모둠의 탐험 기록</h2><p>${g.players}명 · 먹이 경험 ${g.score}번<br>이번 역할 미션 ${g.missions}명 성공</p><div class="help-chain" style="font-size:22px">${r?.chain?r.chain.split(',').map(k=>esc(names[k])).join(' → '):'먹이사슬을 연결하고 있어요'}</div><p style="white-space:pre-wrap">${esc(r?.reason||'모둠 설명을 기다리고 있어요.')}</p><p class="small muted">${r?.submitted?'✓ 모둠 결과 제출 완료':'아직 제출 전이에요'}</p><button class="primary wide">확인</button>`;document.body.append(d);d.querySelector('button').onclick=()=>d.close();d.onclose=()=>d.remove();d.showModal();};
+$('exportBtn').onclick=()=>{const data={title:'먹이사슬 술래잡기 수업 결과',date:new Date().toISOString(),groups:groupSummary(S.world),boards:S.boards,records:Object.values(S.world.players).filter(p=>!p.bot).map(p=>({label:p.label,group:p.group,visited:p.visited,links:p.learned,score:p.score,currentMission:missionFor(p,S.world.duration)}))};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='먹이사슬_수업결과.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 if(teacherMode){show('teacherLogin');net(true).then(n=>{if(n.isTeacher)return connectTeacher();}).catch(fail);}

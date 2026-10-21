@@ -18,7 +18,7 @@ export function packRealtimeWorld(world){
     v:3,
     clock:[round(world.t),world.round,world.duration,world.phase,round(world.remaining),world.bots,world.serial],
     roster:entries.map(([id,p])=>[id,p.base,p.group,p.label,p.bot?1:0,p.skin??0]),
-    motion:entries.map(([,p])=>[p.role,p.online?1:0,round(p.x),round(p.y),round(p.angle),p.score,p.caught,round(p.cool),round(p.effect),round(p.protect),round(p.respawn),round(p.eatWait),p.hidden?1:0,p.actionSeq,(p.learned||[]).join(''),(p.visited||[]).join('')].join(',')).join(';'),
+    motion:entries.map(([,p])=>[p.role,p.online?1:0,round(p.x),round(p.y),round(p.angle),p.score,p.caught,round(p.cool),round(p.effect),round(p.protect),round(p.respawn),round(p.eatWait),p.hidden?1:0,p.actionSeq,(p.learned||[]).join(''),(p.visited||[]).join(''),round(p.hideTime),round(p.hideAway),p.fed||0].join(',')).join(';'),
     garden:world.plants.map(p=>[p.id,p.x,p.y]),
     ripeness:world.plants.map(p=>round(p.ready)).join(','),
     events:(world.events||[]).map(e=>[e.id,e.type==='skill'?0:e.type==='rice'?1:2,round(e.at),indices.get(e.hunter)??-1,indices.get(e.prey)??-1,e.from??-1,e.to??-1,e.role??-1,round(e.x),round(e.y)].join(',')).join(';')
@@ -31,7 +31,7 @@ export function unpackRealtimeWorld(packet){
   Object.assign(world,{t:c[0]||0,round:c[1]||0,duration:c[2],phase:c[3]||'lobby',remaining:c[4]??c[2],bots:c[5]||0,serial:c[6]||0});
   roster.forEach((row,i)=>{
     const [id,base,group,label,bot,skin]=list(row),r=(rows[i]||'').split(',');
-    world.players[id]={id,base,group,label,bot:!!bot,skin:skin??0,role:+r[0]||0,online:r[1]==='1',x:+r[2]||0,y:+r[3]||0,angle:+r[4]||0,score:+r[5]||0,caught:+r[6]||0,cool:+r[7]||0,effect:+r[8]||0,protect:+r[9]||0,respawn:+r[10]||0,eatWait:+r[11]||0,hidden:r[12]==='1',actionSeq:+r[13]||0,learned:digits(r[14]),visited:digits(r[15])};
+    world.players[id]={id,base,group,label,bot:!!bot,skin:skin??0,role:+r[0]||0,online:r[1]==='1',x:+r[2]||0,y:+r[3]||0,angle:+r[4]||0,score:+r[5]||0,caught:+r[6]||0,cool:+r[7]||0,effect:+r[8]||0,protect:+r[9]||0,respawn:+r[10]||0,eatWait:+r[11]||0,hidden:r[12]==='1',actionSeq:+r[13]||0,learned:digits(r[14]),visited:digits(r[15]),hideTime:+r[16]||0,hideAway:+r[17]||0,fed:+r[18]||0};
   });
   const readiness=String(packet.ripeness||'').split(',');
   if(packet.garden)world.plants=list(packet.garden).map((row,i)=>{const [id,x,y]=list(row);return {id,x,y,ready:+readiness[i]||0};});
