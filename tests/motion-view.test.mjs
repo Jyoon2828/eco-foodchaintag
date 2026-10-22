@@ -65,3 +65,16 @@ test('jumping over a tree uses the same collision rules in prediction and host s
   }
   assert.ok(p.y>400);
 });
+
+test('remote walking blends stay continuous between packets at common screen rates',()=>{
+  for(const fps of [60,90,120]){
+    const {world,p}=scene(),view=new MotionView();let tick=-1,previous;
+    for(let n=0;n<fps*2;n++){
+      const seconds=n/fps,next=Math.floor((seconds+1e-8)*4);
+      if(next!==tick){tick=next;world.t=next*.25;p.x=100+80*next*.25;}
+      const current=view.frame(world,null,seconds*1000,1/fps).me;
+      if(seconds>.6){assert.ok(current.moveBlend>.6,`walking flicker at ${fps} Hz`);assert.ok(current.x>=previous.x);assert.ok(current.x-previous.x<4);}
+      previous=current;
+    }
+  }
+});

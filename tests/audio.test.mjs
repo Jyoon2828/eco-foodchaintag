@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ForestAudio,LearnerSound} from '../source/audio.js';
+import {ForestAudio,LearnerSound} from '../audio.js';
 
 class Parameter {
   constructor(){this.value=0;this.points=[];}
@@ -131,4 +131,23 @@ test('pending learner events do not make sounds while paused',()=>{
   const world={phase:'paused',round:0,serial:1,events:[{id:1,type:'rice',hunter:'me'}]};
   observer.observe(world,{complete:true});assert.equal(sounds.length,0);
   world.phase='playing';observer.observe(world,{complete:true});assert.deepEqual(sounds,['mission']);
+});
+
+test('class sounds use the actual learner UID, not a fixed practice id',()=>{
+  const heard=[],listener=new LearnerSound({effect:name=>heard.push(name)}),world={round:0,phase:'playing',serial:4,events:[
+    {id:1,type:'skill',hunter:'pupil-17',role:1},
+    {id:2,type:'catch',hunter:'other',prey:'pupil-17'},
+    {id:3,type:'rice',hunter:'me'},
+    {id:4,type:'catch',hunter:'pupil-17',prey:'other'}
+  ]};
+  listener.observe(world,{complete:false},'pupil-17');assert.deepEqual(heard,['tongue','caught','eat']);
+  listener.observe(world,{complete:false},'pupil-17');assert.equal(heard.length,3);
+});
+test('teacher hears no student action sounds and local dialogs consume old cues quietly',()=>{
+  const heard=[],listener=new LearnerSound({effect:name=>heard.push(name)});
+  const world={round:0,phase:'playing',serial:1,events:[{id:1,type:'rice',hunter:'pupil'}]};
+  listener.observe(world,{complete:false},null);assert.deepEqual(heard,[]);
+  listener.reset();listener.observe(world,{complete:false},'pupil',false);listener.observe(world,{complete:false},'pupil',true);assert.deepEqual(heard,[]);
+  world.serial=2;world.events.push({id:2,type:'rice',hunter:'pupil'});listener.observe(world,{complete:true},'pupil',true);
+  assert.deepEqual(heard,['eat','mission']);
 });

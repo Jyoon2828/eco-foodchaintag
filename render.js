@@ -1,7 +1,7 @@
 import {W,H,JUMP_DURATION,JUMP_HEIGHT,ROLES,REEDS,ROCKS,TREES,hideProtected,visibleTo,canEat,dist} from './engine.js';
 import {MAP_MARGIN,MAP_WIDTH,MAP_HEIGHT,project,unproject,facingFrame} from './projection.js';
 import {ASSET_FRAMES} from './asset-frames.js';
-import {MotionView} from './motion-view.js';
+import {MotionView,gaitPose} from './motion-view.js';
 const animals=new Image();animals.src='./assets/animals-pixel.png';
 const props=new Image();props.src='./assets/forest-props-pixel.png';
 const box=(c,x,y,w,h,r=12)=>{c.beginPath();c.roundRect(x,y,w,h,r);};
@@ -44,8 +44,8 @@ export class Renderer{
     if(!sprite(c,props,type,v.x,v.y,size)){c.fillStyle=['#5b994e','#9d9a9d','#74a64b','#d1bc58'][type];box(c,v.x-size*.3,v.y-size*.6,size*.6,size*.6,20);c.fill();}c.restore();
   }
   pawn(c,p,pos,me,now){
-    const v=project(pos.x,pos.y),moving=pos.moving>12,role=p.role,phase=pos.walk,size=role===3?65:58;
-    let lift=role===3?22+Math.sin(now/210+p.base)*3:moving?Math.abs(Math.sin(phase))*(role===0||role===1?4:1.5):0;
+    const v=project(pos.x,pos.y),role=p.role,size=role===3?65:58,pose=gaitPose(role,pos.walk,pos.moveBlend||0,now,p.base);
+    let lift=pose.lift;
     const jumpLift=role===0&&p.effect>0?Math.sin(Math.max(0,Math.min(1,1-pos.jump/JUMP_DURATION))*Math.PI)*JUMP_HEIGHT:0;
     if(jumpLift>0)lift=jumpLift;if(p.effect>0&&role===3)lift*=.3;
     c.save();if(p.hidden)c.globalAlpha=hideProtected(p)?.43:.8;
@@ -55,8 +55,9 @@ export class Renderer{
     if(p.protect>0){c.strokeStyle='#fff5ab';c.lineWidth=3;c.setLineDash([5,4]);c.beginPath();c.ellipse(v.x,v.y-20,32,40,0,0,7);c.stroke();c.setLineDash([]);}
     if(hideProtected(p)){c.strokeStyle='#9de3d0';c.lineWidth=3;c.beginPath();c.ellipse(v.x,v.y-20,31,38,0,0,7);c.stroke();}
     if(p.effect>0&&role===1){const end=project(pos.x+Math.cos(p.angle)*130,pos.y+Math.sin(p.angle)*130,15);c.strokeStyle='#ef93a1';c.lineWidth=5;c.lineCap='round';c.beginPath();c.moveTo(v.x,v.y-18);c.lineTo(end.x,end.y);c.stroke();}
-    c.save();c.translate(v.x,v.y-lift);c.filter=p.skin===1?'brightness(1.08) saturate(1.13) hue-rotate(-10deg)':p.skin===2?'brightness(.96) hue-rotate(15deg)':'none';
-    if(!sprite(c,animals,role*4+facingFrame(p.angle),0,0,size)){c.font='36px sans-serif';c.textAlign='center';c.fillText(ROLES[role].emoji,0,-6);}c.restore();
+    const pixels=this.scale*this.dpr,snapX=Math.round((v.x+pose.sway-this.left)*pixels)/pixels+this.left,snapY=Math.round((v.y-lift-this.top)*pixels)/pixels+this.top;
+    c.save();c.translate(snapX,snapY);c.filter=p.skin===1?'brightness(1.08) saturate(1.13) hue-rotate(-10deg)':p.skin===2?'brightness(.96) hue-rotate(15deg)':'none';
+    if(!sprite(c,animals,role*4+(pos.facing??facingFrame(p.angle)),0,0,size)){c.font='36px sans-serif';c.textAlign='center';c.fillText(ROLES[role].emoji,0,-6);}c.restore();
     const fs=Math.max(13,11/this.scale),label=p.bot?'숲 친구':p.label;c.font=`${p.id===me?.id?'bold ':''}${fs}px "Noto Sans KR",sans-serif`;c.textAlign='center';const tw=c.measureText(label).width;
     c.fillStyle=p.id===me?.id?'#326c52':'#fffef1f0';box(c,v.x-tw/2-6,v.y+9,tw+12,fs+7,6);c.fill();c.fillStyle=p.id===me?.id?'#fffef1':'#3b6346';c.fillText(label,v.x,v.y+fs+10);
     if(p.id===me?.id){c.font='bold 13px "Noto Sans KR",sans-serif';c.fillStyle='#24523c';c.fillText(p.hidden?(hideProtected(p)?'숨기 보호 중':'숨기 보호 끝'):`나 · ${ROLES[role].name}`,v.x,v.y-size-lift-9);}c.restore();
@@ -70,6 +71,7 @@ export class Renderer{
     const vw=width/this.scale,vh=height/this.scale,goal=me?project(me.x,me.y):{x:MAP_WIDTH/2,y:MAP_HEIGHT/2};
     if(teacher)this.camera={x:MAP_WIDTH/2,y:MAP_HEIGHT/2};else{this.camera.x+=(goal.x-this.camera.x)*(1-Math.exp(-dt*12));this.camera.y+=(goal.y-this.camera.y)*(1-Math.exp(-dt*12));}
     this.left=teacher?(MAP_WIDTH-vw)/2:Math.max(0,Math.min(MAP_WIDTH-vw,this.camera.x-vw/2));this.top=teacher?(MAP_HEIGHT-vh)/2:Math.max(0,Math.min(MAP_HEIGHT-vh,this.camera.y-vh/2-20));
+    const pixels=this.scale*this.dpr;this.left=Math.round(this.left*pixels)/pixels;this.top=Math.round(this.top*pixels)/pixels;
     c.setTransform(this.dpr,0,0,this.dpr,0,0);c.fillStyle='#91bd70';c.fillRect(0,0,width,height);c.scale(this.scale,this.scale);c.translate(-this.left,-this.top);c.drawImage(this.terrain,0,0,MAP_WIDTH,MAP_HEIGHT);
     const objects=[];for(const p of [...DECOR,...TREES])objects.push({depth:p.y,kind:'tree',p});for(const p of ROCKS)objects.push({depth:p.y,kind:'rock',p});
     for(const r of REEDS)for(let i=0;i<7;i++){const a=i*Math.PI*2/6,rad=i===6?0:66,p={x:r.x+Math.cos(a)*rad,y:r.y+Math.sin(a)*rad*.65};objects.push({depth:p.y,kind:'reed',p});}
@@ -89,6 +91,6 @@ export class Renderer{
   }
   minimap(c,world,me,width,height){
     const mw=152,mh=108,mx=width-mw-14,my=height-mh-14;c.save();c.fillStyle='#fffdf0f5';box(c,mx,my,mw,mh,12);c.fill();const scale=Math.min((mw-20)/W,(mh-32)/H),ox=mx+(mw-W*scale)/2,oy=my+9,to=p=>({x:ox+p.x*scale,y:oy+p.y*scale});c.fillStyle='#c1da9e';box(c,ox,oy,W*scale,H*scale,4);c.fill();
-    for(const r of REEDS){const p=to(r);c.fillStyle='#5a8b58';c.beginPath();c.arc(p.x,p.y,3,0,7);c.fill();}for(const f of world.plants){if(f.ready>0)continue;const p=to(f);c.fillStyle='#b18c3d';c.fillRect(p.x-1,p.y-1,2,2);}const p=to(me);c.fillStyle='#285d49';c.strokeStyle='#fff';c.lineWidth=2;c.beginPath();c.arc(p.x,p.y,4,0,7);c.fill();c.stroke();c.font='11px "Noto Sans KR",sans-serif';c.fillStyle='#526c47';c.textAlign='center';c.fillText('나의 위치 · 먹이 장소',mx+mw/2,my+mh-9);c.restore();
+    for(const r of REEDS){const p=to(r);c.fillStyle='#5a8b58';c.beginPath();c.arc(p.x,p.y,3,0,7);c.fill();}if(me.role===0){for(const f of world.plants){if(f.ready>0)continue;const p=to(f);c.fillStyle='#b18c3d';c.fillRect(p.x-1,p.y-1,2,2);}}else{for(const food of Object.values(world.players)){if(!food.online||food.respawn>0||!canEat(me.role,food.role)||!visibleTo(me,food))continue;const p=to(food);c.fillStyle='#d49a36';c.beginPath();c.arc(p.x,p.y,2.5,0,7);c.fill();}}const p=to(me);c.fillStyle='#285d49';c.strokeStyle='#fff';c.lineWidth=2;c.beginPath();c.arc(p.x,p.y,4,0,7);c.fill();c.stroke();c.font='11px "Noto Sans KR",sans-serif';c.fillStyle='#526c47';c.textAlign='center';c.fillText('나의 위치 · 먹이 장소',mx+mw/2,my+mh-9);c.restore();
   }
 }

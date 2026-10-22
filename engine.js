@@ -1,6 +1,7 @@
 export const W = 1800, H = 1100;
 export const JUMP_DURATION=.75, JUMP_DISTANCE=330, JUMP_HEIGHT=96;
 export const HIDE_DURATION=3, HIDE_RESET_TIME=1;
+const AI_STATES=new WeakMap();
 export const ROLES = [
   {name:'메뚜기',emoji:'🦗',color:'#749b32',food:'벼',enemy:'개구리',skill:'멀리 뛰기',speed:255,cd:4},
   {name:'개구리',emoji:'🐸',color:'#23856c',food:'메뚜기',enemy:'뱀',skill:'혀 뻗기',speed:235,cd:3},
@@ -33,6 +34,7 @@ function spawn(p,world) {
   if(p.bot){p.x=Math.min(W-60,p.x+100);p.y=Math.min(H-60,p.y+95);}
   if(p.role!==3){const safe=resolvePosition(p.x,p.y);p.x=safe.x;p.y=safe.y;}
   p.angle=0;p.cool=0;p.effect=0;p.protect=3;p.respawn=0;p.hidden=false;p.hideTime=0;p.hideAway=0;p.eatWait=0;
+  AI_STATES.delete(p);
 }
 export function addPlayer(world,id,info={},bot=false) {
   if(world.players[id]) {Object.assign(world.players[id],{online:true,group:info.group??world.players[id].group,label:info.label??world.players[id].label,skin:info.skin??world.players[id].skin??0});return world.players[id];}
@@ -80,23 +82,41 @@ export function resolvePosition(x,y){
   for(let pass=0;pass<2;pass++)for(const o of OBSTACLES){const d=Math.hypot(x-o.x,y-o.y),min=o.r+23;if(d<min){const a=d<.001?0:Math.atan2(y-o.y,x-o.x);x=o.x+Math.cos(a)*min;y=o.y+Math.sin(a)*min;}}
   return {x:clamp(x,42,W-42),y:clamp(y,45,H-45)};
 }
-function aiInput(world,p){
+function walkClear(a,b){
+  const dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy;if(length<1)return true;
+  return !OBSTACLES.some(o=>{const t=clamp(((o.x-a.x)*dx+(o.y-a.y)*dy)/length,0,1);return Math.hypot(a.x+t*dx-o.x,a.y+t*dy-o.y)<o.r+24;});
+}
+function aiInput(world,p,dt){
   const all=Object.values(world.players).filter(q=>q.online&&q.respawn<=0&&q.id!==p.id);
-  const dangers=all.filter(q=>canEat(q.role,p.role)&&visibleTo(p,q));
-  const danger=dangers.sort((a,b)=>dist(p,a)-dist(p,b))[0];let dx=0,dy=0,act=false;
-  if(danger&&dist(p,danger)<250){dx=p.x-danger.x;dy=p.y-danger.y;act=p.role===0||p.role===2;}
-  else{
-    const foods=p.role===0?world.plants.filter(q=>q.ready<=0):all.filter(q=>canEat(p.role,q.role)&&q.protect<=0&&visibleTo(p,q));
-    const target=foods.sort((a,b)=>dist(p,a)-dist(p,b))[0];
-    if(target){dx=target.x-p.x;dy=target.y-p.y;act=dist(p,target)<170&&p.role>0;}
-    else {dx=Math.cos(world.t*.3+p.base);dy=Math.sin(world.t*.4+p.base);}
+  const danger=all.filter(q=>canEat(q.role,p.role)&&visibleTo(p,q)).sort((a,b)=>dist(p,a)-dist(p,b))[0];
+  let state=AI_STATES.get(p);if(!state){state={heading:p.angle,chooseAt:0,pathAt:0,route:[]};AI_STATES.set(p,state);}
+  const valid=state.target&&(state.kind==='wander'?true:state.kind==='danger'?state.target.respawn<=0&&dist(p,state.target)<290:state.target.ready!==undefined?state.target.ready<=0:state.target.online&&state.target.respawn<=0&&state.target.protect<=0&&!hideProtected(state.target));
+  if(world.t>=state.chooseAt||!valid||danger&&dist(p,danger)<140&&state.kind!=='danger'){
+    state.chooseAt=world.t+.55;state.route=[];state.pathAt=0;
+    if(danger&&dist(p,danger)<230){state.kind='danger';state.target=danger;}
+    else{
+      const foods=p.role===0?world.plants.filter(q=>q.ready<=0):all.filter(q=>canEat(p.role,q.role)&&q.protect<=0&&!hideProtected(q)&&visibleTo(p,q));
+      state.kind='food';state.target=foods.sort((a,b)=>dist(p,a)-dist(p,b))[0];
+      if(!state.target){state.kind='wander';state.target={x:clamp(p.x+Math.cos(world.t*.18+p.base)*240,65,W-65),y:clamp(p.y+Math.sin(world.t*.18+p.base)*240,65,H-65)};}
+    }
   }
-  let len=Math.hypot(dx,dy)||1;dx/=len;dy/=len;
-  if(p.role!==3){
-    const o=OBSTACLES.find(o=>Math.hypot(p.x+dx*85-o.x,p.y+dy*85-o.y)<o.r+36);
-    if(o){const d=Math.hypot(p.x-o.x,p.y-o.y)||1,nx=(p.x-o.x)/d,ny=(p.y-o.y)/d;let tx=-ny,ty=nx;if(tx*dx+ty*dy<0){tx=-tx;ty=-ty;}dx=tx+nx*.35;dy=ty+ny*.35;}
-  }
-  len=Math.hypot(dx,dy)||1;return {x:dx/len,y:dy/len,action:act&&p.cool<=0?p.actionSeq+1:p.actionSeq};
+  const target=state.target,distance=dist(p,target);let goal=target,act=false;
+  if(state.kind==='danger'){
+    const d=Math.max(1,distance);goal=resolvePosition(clamp(p.x+(p.x-target.x)/d*260,65,W-65),clamp(p.y+(p.y-target.y)/d*260,65,H-65));
+    act=p.role===0&&distance<110||p.role===2&&distance<170;
+  }else if(state.kind==='food')act=p.role>0&&distance<160;
+  if(p.role===0&&p.effect>0){state.heading=p.angle;return {x:Math.cos(p.angle),y:Math.sin(p.angle),action:p.actionSeq};}
+  if(p.role!==3&&!walkClear(p,goal)){
+    if(world.t>=state.pathAt||!state.goal||dist(state.goal,goal)>120){state.route=findPath(p,goal,p.role);state.pathAt=world.t+.7;state.goal={x:goal.x,y:goal.y};}
+    while(state.route.length&&dist(p,state.route[0])<24)state.route.shift();
+    while(state.route.length>1&&walkClear(p,state.route[1]))state.route.shift();
+    if(state.route.length)goal=state.route[0];
+  }else state.route=[];
+  const dx=goal.x-p.x,dy=goal.y-p.y,desired=Math.atan2(dy,dx),turn=Math.atan2(Math.sin(desired-state.heading),Math.cos(desired-state.heading));
+  state.heading+=clamp(turn,-dt*4.5,dt*4.5);
+  const stopped=state.kind==='food'&&distance<30;
+  if(stopped)p.angle=state.heading;
+  return {x:stopped?0:Math.cos(state.heading),y:stopped?0:Math.sin(state.heading),action:act&&p.cool<=0?p.actionSeq+1:p.actionSeq};
 }
 export function findPath(start,target,role=0){
   const goal=role===3?{x:clamp(target.x,42,W-42),y:clamp(target.y,45,H-45)}:resolvePosition(target.x,target.y);
@@ -129,9 +149,9 @@ export function advanceMotion(p,input={},dt=.05){
   let skillStarted=false;
   if(Number(input.action)>p.actionSeq){
     p.actionSeq=Number(input.action);
-    if(p.cool===0){p.cool=ROLES[p.role].cd;p.effect=p.role===0?JUMP_DURATION:p.role===2?3:p.role===1?.3:.65;if(p.role===0)jumpTime=JUMP_DURATION;skillStarted=true;}
+    if(p.cool===0){p.cool=p.bot&&p.role===0?8:ROLES[p.role].cd;p.effect=p.role===0?JUMP_DURATION:p.role===2?3:p.role===1?.3:.65;if(p.role===0)jumpTime=JUMP_DURATION;skillStarted=true;}
   }
-  let speed=ROLES[p.role].speed;
+  let speed=ROLES[p.role].speed*(p.bot?[.64,.72,.74,.76][p.role]:1);
   if(p.effect>0){if(p.role===3)speed*=1.8;if(p.role===2)speed*=.55;}
   // Integrate the last partial frame, including automatic forward travel in a jump.
   const jumping=jumpTime>0,travel=jumping?JUMP_DISTANCE/JUMP_DURATION*Math.min(dt,jumpTime):speed*dt;
@@ -162,7 +182,7 @@ export function step(world,inputs={},dt=.05){
   for(const p of all){
     p.protect=Math.max(0,p.protect-dt);p.eatWait=Math.max(0,p.eatWait-dt);
     if(p.respawn>0){p.respawn=Math.max(0,p.respawn-dt);if(p.respawn===0)spawn(p,world);continue;}
-    const input=p.bot?aiInput(world,p):(inputs[p.id]||{}),takeoff={x:p.x,y:p.y};
+    const input=p.bot?aiInput(world,p,dt):(inputs[p.id]||{}),takeoff={x:p.x,y:p.y};
     const motion=advanceMotion(p,input,dt);
     if(motion.skillStarted)event(world,{type:'skill',hunter:p.id,role:p.role,...takeoff});
     advanceHiding(p,motion,dt);

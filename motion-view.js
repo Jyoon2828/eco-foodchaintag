@@ -1,8 +1,21 @@
 import {W,H,JUMP_DURATION,advanceMotion,dist,resolvePosition} from './engine.js';
+import {facingFrame} from './projection.js';
 
 const mix=(a,b,t)=>a+(b-a)*t;
 const turn=(a,b,t)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
 const motionKeys=['x','y','angle','effect','cool'];
+
+export function stableFacing(angle,previous){
+  const x=Math.cos(angle),y=Math.sin(angle);
+  if((previous===1&&x<0||previous===2&&x>=0)&&Math.abs(x)>.75*Math.abs(y))return previous;
+  if((previous===0&&y>=0||previous===3&&y<0)&&Math.abs(y)>.75*Math.abs(x))return previous;
+  return facingFrame(angle);
+}
+export function gaitPose(role,phase,blend,time,base=0){
+  if(role===3)return {lift:22+Math.sin(time/650+base)*1.5,sway:0};
+  if(role===2)return {lift:0,sway:Math.sin(phase)*.9*blend};
+  return {lift:(1-Math.cos(phase))*(role===1?1.4:.65)*blend,sway:0};
+}
 
 // Presentation only: no catches, food, scores or database writes happen here.
 export class MotionView{
@@ -15,7 +28,7 @@ export class MotionView{
     for(const p of Object.values(world.players)){
       let state=this.states.get(p.id);
       const reset=!state||state.role!==p.role||state.respawn!==!!p.respawn||dist(state.latest,p)>240;
-      if(reset){state={role:p.role,respawn:!!p.respawn,history:[],latest:{...p},walk:0,last:{x:p.x,y:p.y},error:{x:0,y:0}};this.states.set(p.id,state);}
+      if(reset){state={role:p.role,respawn:!!p.respawn,history:[],latest:{...p},walk:0,moveBlend:0,facing:undefined,last:{x:p.x,y:p.y},error:{x:0,y:0}};this.states.set(p.id,state);}
       if(fresh||reset){
         const sample={...p,at:now};state.history.push(sample);state.history=state.history.slice(-6);state.latest=sample;
         if(p.id===myId&&predict){
@@ -40,8 +53,11 @@ export class MotionView{
         }
       }else{state.pred=null;state.error={x:0,y:0};}
       visual.x=Math.max(42,Math.min(W-42,visual.x));visual.y=Math.max(45,Math.min(H-45,visual.y));
-      const moved=dist(state.last,visual);state.walk+=Math.min(moved,30)*.065;
-      result[p.id]={...visual,walk:state.walk,moving:moved/Math.max(dt,.001),jump:visual.role===0?visual.effect:0};
+      const moved=reset?0:dist(state.last,visual),speed=moved/Math.max(dt,.001);
+      const targetBlend=world.phase==='playing'?Math.min(1,speed/110):0;
+      state.moveBlend=mix(state.moveBlend,targetBlend,1-Math.exp(-Math.max(0,dt)*14));
+      state.walk+=moved*.025;state.facing=stableFacing(visual.angle,state.facing);
+      result[p.id]={...visual,walk:state.walk,moving:speed,moveBlend:state.moveBlend,facing:state.facing,jump:visual.role===0?visual.effect:0};
       state.last={x:visual.x,y:visual.y};
     }
     for(const id of this.states.keys())if(!world.players[id])this.states.delete(id);
