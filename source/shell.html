@@ -2,8 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#477956"><meta name="description" content="숲 친구들과 혼자 즐기는 먹이사슬 술래잡기. 네 동물 역할을 맡아 먹이관계를 배워요.">
-  <title>먹이사슬 술래잡기 · 혼자 숲속 탐험</title>
+  <meta name="theme-color" content="#477956"><meta name="description" content="숲 친구들과 먹이사슬 술래잡기를 하고, 그림을 연결해 먹이그물을 만드는 개인 체험 활동입니다.">
+  <title>먹이사슬·먹이그물 탐험 · 혼자 숲속 탐험</title>
   <!-- GAME_STYLE -->
 </head>
 <body>
@@ -37,6 +37,7 @@
         <div class="role-parade" aria-label="메뚜기, 개구리, 뱀, 매"><span><i class="animal a0"></i>메뚜기</span><b>→</b><span><i class="animal a1"></i>개구리</span><b>→</b><span><i class="animal a2"></i>뱀</span><b>→</b><span><i class="animal a3"></i>매</span></div>
         <p class="start-note">나와 숲 친구 <b id="friendCount">12</b>마리로 시작 · 역할마다 <b id="durationNote">90</b>초</p>
         <button id="startButton" class="primary start-button">숲속 탐험 시작하기 <span>→</span></button>
+        <button id="openWebDirect" class="web-direct">먹이사슬을 이미 해 봤다면 · 먹이그물 활동으로 →</button>
         <details class="settings"><summary>체험 시간·숲 친구 바꾸기</summary><div><label>한 역할의 시간<select id="duration"><option value="60">60초</option><option value="90" selected>90초</option><option value="120">120초</option></select></label><label>처음 숲 친구<select id="bots"><option value="2">8마리</option><option value="3" selected>12마리</option><option value="4">16마리</option></select></label></div></details>
         <small class="home-foot">시작하면 작은 소리로 음악이 나와요. 위쪽 ♫에서 바꿀 수 있어요.<br>먹이 동물은 역할에 맞춰 더 등장해요.<br>혼자 진행하는 체험이에요. 친구들도 각자의 숲에서 놀아요.</small>
       </div>
@@ -44,9 +45,10 @@
     <section id="pausePanel" class="overlay" hidden><div class="panel pause-card"><span class="eyebrow">잠깐 쉬어 가요</span><h2>숲이 기다리고 있어요</h2><p>내 먹이와 천적을 다시 떠올려 볼까요?<br>계속하기를 누르면 시간이 다시 흘러요.</p><button id="resumeButton" class="primary wide">계속 탐험하기</button><button id="restartButton" class="secondary wide">처음으로 돌아가기</button></div></section>
     <section id="roundPanel" class="overlay" hidden><div id="roundContent" class="panel quiz-card"></div></section>
     <section id="summaryPanel" class="overlay" hidden><div id="summaryContent" class="panel summary-card"></div></section>
+    <section id="webPanel" class="overlay web-overlay" hidden aria-label="먹이그물 활동"><div id="webContent" class="panel web-card"></div></section>
   </main>
 </div>
-<dialog id="soundDialog" aria-labelledby="soundTitle"><button id="closeSound" class="close-button" aria-label="소리 설정 닫기">×</button><span class="eyebrow">내 숲의 소리</span><h2 id="soundTitle">편안한 소리로 탐험해요</h2><p class="sound-intro">잔잔한 음악과 행동 소리를 따로 고를 수 있어요.</p><label class="sound-option"><span><b>숲속 BGM</b><small>탐험하는 동안 흐르는 잔잔한 음악</small></span><input id="musicEnabled" type="checkbox" checked></label><label class="sound-option"><span><b>효과음</b><small>먹이 먹기 · 특수 동작 · 미션 성공</small></span><input id="effectsEnabled" type="checkbox" checked></label><label class="sound-volume" for="soundVolume"><span>전체 음량 <output id="volumeValue" for="soundVolume">35%</output></span><input id="soundVolume" type="range" min="0" max="100" step="1" value="35"></label><p id="soundStatus" class="sound-status" role="status">시작 버튼을 누르면 소리가 켜져요.</p><button id="soundPreview" class="secondary wide">효과음 들어보기</button><button id="soundDone" class="primary wide">설정 완료</button></dialog>
-<dialog id="helpDialog"><button id="closeHelp" class="close-button" aria-label="닫기">×</button><span class="eyebrow">놀이 방법</span><h2>먹고, 피하고, 숨어요!</h2><ol><li>이동 조작판, 방향키·WASD로 움직여요. 빈 곳을 눌러 이동할 수도 있어요.</li><li>먹이에 가까이 가면 자동으로 먹어요. 제한 시간 안에 화면의 먹이 미션에 도전해요.</li><li>행동 버튼 또는 스페이스로 특수 동작을 써요. 메뚜기는 나무·바위를 훌쩍 뛰어넘어요.</li><li>메뚜기·개구리·뱀은 나무 가까이나 풀숲에서 멈추면 처음 3초 동안 잡히지 않아요. 이후에는 숨어 있어도 잡혀요. 밖에 1초 이상 있어야 다시 보호받아요.</li><li>잡혀도 2.5초 뒤 다시 출발해요. 이번 역할에서 먹은 수는 유지돼요.</li><li>한 역할이 끝나면 먹이관계 한 문제를 풀고, 다음 동물 역할로 바꾸어요.</li></ol><p class="chain">🌾 → 🦗 → 🐸 → 🐍 → 🦅</p><p class="small">화살표는 먹히는 생물에서 먹는 생물 쪽이에요.<br>교과서의 대표 먹이사슬을 단순화한 놀이예요.</p><button id="helpDone" class="primary wide">알겠어요!</button></dialog>
+<dialog id="soundDialog" aria-labelledby="soundTitle"><button id="closeSound" class="close-button" aria-label="소리 설정 닫기">×</button><span class="eyebrow">내 숲의 소리</span><h2 id="soundTitle">편안한 소리로 탐험해요</h2><p class="sound-intro">잔잔한 음악과 행동 소리를 따로 고를 수 있어요.</p><label class="sound-option"><span><b>숲속 BGM</b><small>술래잡기를 하는 동안 흐르는 잔잔한 음악</small></span><input id="musicEnabled" type="checkbox" checked></label><label class="sound-option"><span><b>효과음</b><small>먹이 먹기 · 특수 동작 · 미션 성공</small></span><input id="effectsEnabled" type="checkbox" checked></label><label class="sound-volume" for="soundVolume"><span>전체 음량 <output id="volumeValue" for="soundVolume">35%</output></span><input id="soundVolume" type="range" min="0" max="100" step="1" value="35"></label><p id="soundStatus" class="sound-status" role="status">시작 버튼을 누르면 소리가 켜져요.</p><button id="soundPreview" class="secondary wide">효과음 들어보기</button><button id="soundDone" class="primary wide">설정 완료</button></dialog>
+<dialog id="helpDialog"><button id="closeHelp" class="close-button" aria-label="닫기">×</button><span class="eyebrow">놀이 방법</span><h2>먹고, 피하고, 숨어요!</h2><ol><li>이동 조작판, 방향키·WASD로 움직여요. 빈 곳을 눌러 이동할 수도 있어요.</li><li>먹이에 가까이 가면 자동으로 먹어요. 제한 시간 안에 화면의 먹이 미션에 도전해요.</li><li>행동 버튼 또는 스페이스로 특수 동작을 써요. 메뚜기는 나무·바위를 훌쩍 뛰어넘어요.</li><li>메뚜기·개구리·뱀은 나무 가까이나 풀숲에서 멈추면 처음 3초 동안 잡히지 않아요. 이후에는 숨어 있어도 잡혀요. 밖에 1초 이상 있어야 다시 보호받아요.</li><li>잡혀도 2.5초 뒤 다시 출발해요. 이번 역할에서 먹은 수는 유지돼요.</li><li>한 역할이 끝나면 그림 카드를 눌러 먹이사슬을 연결해요. 먹히는 생물에서 먹는 생물 쪽으로 화살표를 놓고, 연결을 확인한 뒤 다음 동물 역할로 바꾸어요.</li><li>먹이그물 활동에서는 먹히는 생물과 먹는 생물 그림을 차례로 눌러요. 생쥐·참새의 단서로 새 관계를 더하고, 개구리를 가렸을 때 뱀에게 남는 먹이도 찾아요.</li></ol><p class="chain">🌾 → 🦗 → 🐸 → 🐍 → 🦅</p><p class="small">화살표는 먹히는 생물에서 먹는 생물 쪽이에요.<br>교과서의 대표 먹이사슬을 단순화한 놀이예요.</p><button id="helpDone" class="primary wide">알겠어요!</button></dialog>
 <!-- GAME_CODE -->
 </body></html>

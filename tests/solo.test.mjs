@@ -24,14 +24,14 @@ test('pause freezes the local clock and player until explicitly resumed',()=>{
 test('one round records the mission once and the correct quiz gates the next role',()=>{
   const s=new SoloSession();s.start(30,0);s.me.fed=2;endRound(s);
   assert.equal(s.records.length,1);assert.equal(s.records[0].count,2);assert.equal(s.records[0].complete,true);
-  assert.equal(s.next(),false);assert.equal(s.answer(0),false);assert.equal(s.next(),false);
-  assert.equal(s.answer(QUIZZES[0].answer),true);assert.equal(s.records.length,1);
+  assert.equal(s.next(),false);assert.equal(s.answer(['grasshopper','rice']),false);assert.equal(s.next(),false);
+  assert.equal(s.answer(QUIZZES[0].chain),true);assert.equal(s.records.length,1);
   assert.equal(s.next(),true);assert.equal(s.me.role,1);assert.equal(s.me.fed,0);
 });
 test('all four roles finish with their own records, quizzes and adjusted food populations',()=>{
   const s=new SoloSession();s.start(30,3);
   for(let role=0;role<4;role++){
-    assert.equal(s.me.role,role);endRound(s);assert.equal(s.answer(QUIZZES[role].answer),true);assert.equal(s.next(),true);
+    assert.equal(s.me.role,role);endRound(s);assert.equal(s.answer(QUIZZES[role].chain),true);assert.equal(s.next(),true);
   }
   assert.equal(s.finished,true);assert.equal(s.world.phase,'finished');assert.deepEqual(s.records.map(r=>r.role),[0,1,2,3]);
   assert.equal(Object.values(s.world.players).filter(p=>p.bot).length,17);assert.equal(s.me.visited.length,4);

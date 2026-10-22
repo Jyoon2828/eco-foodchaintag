@@ -18,3 +18,15 @@ CRUCIAL style: hand-placed coarse pixel-grid art enlarged as visibly crisp squar
 NO smooth vector curves, NO gradients, NO blur, NO anti-aliasing, NO painterly leaf texture, NO 3D. Emphasize chunky readable pixel clusters.
 Consistent elevated top-down RPG view. Full objects centered in separate evenly sized quadrants with wide empty transparent margins; no object crossing cell boundaries. Preserve genuinely transparent background. No ground tiles, shadows, text, numbers, grid lines or new objects.
 
+
+2026-10-22 · 개인 체험용 1.4 먹이그물 추가 그림
+제작 방식: 내장 image_gen 도구, 각각 신규 생성, transparent_background=true.
+저장 위치: source/assets/mouse.png, source/assets/sparrow.png.
+두 원본은 1254×1254 RGBA PNG이며 투명 배경을 유지했습니다.
+코드가 게임 화면의 CSS 그림과 PNG 결과 저장에 함께 사용합니다.
+
+source/assets/mouse.png — 최종 프롬프트
+Use case: scientific-educational. Asset type: one transparent sprite for a Korean elementary food web game. Make ONE cute, recognizable ordinary small brown field mouse in crisp 16-bit pixel art: rounded ears, tiny black eyes, cream belly, four small feet, long curved thin tail, sitting in a three-quarter view facing right. Warm earthy brown and cream limited palette, chunky visible square pixels, dark brown outline and three-step pixel shading, no smooth painting. Match a charming retro forest game with green frog, grasshopper, brown snake and hawk sprites. Full animal centered, fills about 75 percent of a square canvas with generous transparent margin around the tail. True transparent alpha background. No platform, no scenery, no shadow, no clothes, no letters, no words, no numbers, no border.
+
+source/assets/sparrow.png — 최종 프롬프트
+Use case: scientific-educational. Asset type: one transparent sprite for a Korean elementary food web game. Make ONE cute recognizable Eurasian tree sparrow in crisp 16-bit pixel art: chestnut brown head cap, pale cheeks with black cheek spot, short conical beak, black bib, striped warm brown wings, light cream belly, short tail and two tiny bird feet. Perched naturally in three-quarter side view facing left, wings closed, no perch object. Warm earthy brown and cream limited palette, chunky visible square pixels, dark brown outline and three-step pixel shading, no smooth painting. Match a charming retro forest game with green frog, grasshopper, brown snake and hawk sprites. Full bird centered, fills about 75 percent of a square canvas, generous transparent margin. True transparent alpha background. No platform, no scenery, no shadow, no clothes, no letters, no words, no numbers, no border.

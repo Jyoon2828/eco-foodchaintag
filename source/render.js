@@ -4,6 +4,12 @@ import {ASSET_FRAMES} from './asset-frames.js';
 import {MotionView,gaitPose} from './motion-view.js';
 const animals=new Image();animals.src='./assets/animals-pixel.png';
 const props=new Image();props.src='./assets/forest-props-pixel.png';
+export function drawOrganismImage(c,id,x,y,size){
+  const role=['grasshopper','frog','snake','hawk'].indexOf(id),img=id==='rice'?props:animals;
+  if((id!=='rice'&&role<0)||!img.complete||!img.naturalWidth)return false;
+  const frame=ASSET_FRAMES[id==='rice'?'forest-props-pixel.png':'animals-pixel.png'].frames[id==='rice'?3:role*4],scale=size/Math.max(frame.w,frame.h);
+  c.drawImage(img,frame.x,frame.y,frame.w,frame.h,x-frame.w*scale/2,y-frame.h*scale/2,frame.w*scale,frame.h*scale);return true;
+}
 const box=(c,x,y,w,h,r=12)=>{c.beginPath();c.roundRect(x,y,w,h,r);};
 const DECOR=[];
 for(let x=-30;x<W+90;x+=145){DECOR.push({x,y:-25});DECOR.push({x:x+50,y:H+80});}

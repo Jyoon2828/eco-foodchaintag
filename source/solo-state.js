@@ -17,9 +17,9 @@ export class SoloSession{
     if(!record){record={round:w.round,role:this.me.role,...mission,quizCorrect:false};this.records.push(record);}
     return record;
   }
-  answer(choice){
-    if(this.world.phase!=='between'||!isCorrect(this.me.role,choice))return false;
-    this.recordRound().quizCorrect=true;return true;
+  answer(order){
+    if(this.world.phase!=='between'||!isCorrect(this.me.role,order))return false;
+    const record=this.recordRound();record.quizCorrect=true;record.quizOrder=[...order];return true;
   }
   next(){
     if(this.world.phase!=='between'||!this.recordRound().quizCorrect)return false;
